@@ -391,7 +391,7 @@ void bsp_event_handler(bsp_event_t event)
 /**@snippet [Handling the data received over UART] */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
+    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN]; // BLE_NUS_MAX_DATA_LEN = 20
     static uint8_t index = 0;
     uint32_t       err_code;
 
@@ -403,7 +403,16 @@ void uart_event_handle(app_uart_evt_t * p_event)
 
             if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
             {
-                err_code = ble_nus_string_send(&m_nus, data_array, index);
+                /*
+								 * Function for sending a string to the peer.
+								 * This function sends the input string as an RX characteristic notification to the peer.
+							   * uint32_t ble_nus_string_send	(	ble_nus_t * p_nus, uint8_t * p_string, uint16_t length )
+								 * p_nus	Pointer to the Nordic UART Service structure.
+							   * p_string	String to be sent.
+							   * length	Length of the string.
+								 */
+							
+								err_code = ble_nus_string_send(&m_nus, data_array, index);
                 if (err_code != NRF_ERROR_INVALID_STATE)
                 {
                     APP_ERROR_CHECK(err_code);
@@ -440,7 +449,8 @@ static void uart_init(void)
         TX_PIN_NUMBER,
         RTS_PIN_NUMBER,
         CTS_PIN_NUMBER,
-        APP_UART_FLOW_CONTROL_ENABLED,
+        //APP_UART_FLOW_CONTROL_ENABLED,
+			  APP_UART_FLOW_CONTROL_DISABLED,
         false,
         UART_BAUDRATE_BAUDRATE_Baud115200
     };

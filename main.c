@@ -75,10 +75,15 @@ static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. *
 void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 {
     spi_xfer_done = true;
-    NRF_LOG_PRINTF(" Transfer completed.\r\n");
+    //NRF_LOG_PRINTF(" Transfer completed.\r\n");
     if (m_rx_buf[0] != 0)
     {
         NRF_LOG_PRINTF(" Received: %s\r\n",m_rx_buf);
+    }
+		
+		if (m_tx_buf[0] != 0)
+    {
+        NRF_LOG_PRINTF(" Trasmitted: %s\r\n",m_tx_buf);
     }
 }
 // SPI END

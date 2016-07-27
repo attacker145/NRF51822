@@ -38,6 +38,52 @@
 #include "bsp.h"
 #include "bsp_btn_ble.h"
 
+
+
+#include "nrf_drv_spi.h"
+#include "app_util_platform.h"
+#include "nrf_gpio.h"
+#include "nrf_delay.h"
+#include "nrf_log.h"
+#include "boards.h"
+#include "app_error.h"
+
+
+
+// SPI SPI SPI SPI
+#if defined(BOARD_PCA10036) || defined(BOARD_PCA10040)
+#define SPI_CS_PIN   29 /**< SPI CS Pin.*/
+#elif defined(BOARD_PCA10028)
+//#define SPI_CS_PIN   4  /**< SPI CS Pin.*/
+#define SPI_CS_PIN   19  /**< SPI CS Pin.*/			//04/27/2016
+#else
+#error "Example is not supported on that board."
+#endif
+
+#define SPI_INSTANCE  0 /**< SPI instance index. */
+static const nrf_drv_spi_t spi = NRF_DRV_SPI_INSTANCE(SPI_INSTANCE);  /**< SPI instance. */
+static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instance completed the transfer. */
+
+#define TEST_STRING "Nordic"
+static uint8_t       m_tx_buf[] = TEST_STRING;           /**< TX buffer. */
+static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. */
+static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
+/**
+ * @brief SPI user event handler.
+ * @param event
+ */
+void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
+{
+    spi_xfer_done = true;
+    NRF_LOG_PRINTF(" Transfer completed.\r\n");
+    if (m_rx_buf[0] != 0)
+    {
+        NRF_LOG_PRINTF(" Received: %s\r\n",m_rx_buf);
+    }
+}
+// SPI END
+
+
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
 #define CENTRAL_LINK_COUNT              0                                           /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
@@ -540,14 +586,34 @@ int main(void)
     services_init();
     advertising_init();
     conn_params_init();
-
-    printf("\r\nUART Start!\r\n");
+		//SPI-------------------------------------------------------------------------------
+	  /*
+	   *nrf_drv_config.h
+	   *#define SPI0_CONFIG_SCK_PIN         16
+	   *#define SPI0_CONFIG_MOSI_PIN        17
+     *#define SPI0_CONFIG_MISO_PIN        18
+		*/
+		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);
+    spi_config.ss_pin = SPI_CS_PIN;				//#define SPI_CS_PIN   19
+    APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
+		//----------------------------------------------------------------------------------
+    printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
     
     // Enter main loop.
     for (;;)
     {
+			//-- SPI---
+				// Reset rx buffer and transfer done flag
+        memset(m_rx_buf, 0, m_length);
+        spi_xfer_done = false;
+				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length));
+				while (!spi_xfer_done)
+        {
+            __WFE();
+        }
+			//----SPI END---
         power_manage();
     }
 }

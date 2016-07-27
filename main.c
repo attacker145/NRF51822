@@ -68,6 +68,7 @@ static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instanc
 static uint8_t       m_tx_buf[] = TEST_STRING;           /**< TX buffer. */
 static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. */
 static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
+
 static uint8_t *spibuff;
 /**
  * @brief SPI user event handler.
@@ -79,14 +80,18 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
     //NRF_LOG_PRINTF(" Transfer completed.\r\n");
     if (m_rx_buf[0] != 0)
     {
-        NRF_LOG_PRINTF(" Received: %s\r\n",m_rx_buf);
+        NRF_LOG_PRINTF("SPI Received: %s\r\n",m_rx_buf);
     }
+		else
+		{
+				printf("SPI Received: No Data\r\n");
+		}
 		
 		if (m_tx_buf[0] != 0)
     {
 				//spibuff  
 				//NRF_LOG_PRINTF(" Trasmitted: %s\r\n",m_tx_buf);
-				NRF_LOG_PRINTF(" Trasmitted: %s\r\n",spibuff);
+				NRF_LOG_PRINTF("   SPI Trasmitted: %s\r\n",spibuff);
     }
 }
 // SPI END

@@ -571,6 +571,8 @@ static void power_manage(void)
 
 /**@brief Application main function.
  */
+//unsigned char *uart;
+static uint8_t *spibuff;
 int main(void)
 {
     uint32_t err_code;
@@ -605,14 +607,18 @@ int main(void)
     for (;;)
     {
 			//-- SPI---
+			  spibuff = m_tx_buf;			//07272016
 				// Reset rx buffer and transfer done flag
         memset(m_rx_buf, 0, m_length);
-        spi_xfer_done = false;
-				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length));
+        spi_xfer_done = false;				
+				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
+			  APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length, m_rx_buf, m_length));
 				while (!spi_xfer_done)
         {
             __WFE();
         }
+				LEDS_INVERT(BSP_LED_0_MASK);
+        nrf_delay_ms(200);
 			//----SPI END---
         power_manage();
     }

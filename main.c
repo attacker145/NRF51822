@@ -19,6 +19,8 @@
  *
  * This file contains the source code for a sample application that uses the Nordic UART service.
  * This application uses the @ref srvlib_conn_params module.
+ * Additional files:
+   1. nrf_drv_spi.c 
  */
 
 #include <stdint.h>
@@ -39,7 +41,7 @@
 #include "bsp_btn_ble.h"
 
 
-
+//SPI LIBRARIES
 #include "nrf_drv_spi.h"
 #include "app_util_platform.h"
 #include "nrf_gpio.h"
@@ -47,7 +49,6 @@
 #include "nrf_log.h"
 #include "boards.h"
 #include "app_error.h"
-
 
 
 // SPI SPI SPI SPI
@@ -68,6 +69,14 @@ static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instanc
 static uint8_t       m_tx_buf[] = TEST_STRING;           /**< TX buffer. */
 static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. */
 static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
+//SPI configuration and data buffers for ADS1247 ADC
+static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71}; 	//ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
+static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
+static uint8_t adc_data[]					= {0,0,0,0,0,0};     								//ADC conv NULL array for 3 bytes each RTD and TC values 
+static const uint8_t m_length_setup_tc 	= sizeof(adc_setup_TC);        	/**< Transfer length. */
+static const uint8_t m_length_setup 		= sizeof(adc_wr_setup);        	/**< Transfer length. */
+static const uint8_t m_length_conv 			= sizeof(adc_data);        			/**< Transfer length. */
+
 
 static uint8_t *spibuff;
 /**
@@ -79,8 +88,9 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
     spi_xfer_done = true;
     //NRF_LOG_PRINTF(" Transfer completed.\r\n");
     if (m_rx_buf[0] != 0)
-    {
-        NRF_LOG_PRINTF("SPI Received: %s\r\n",m_rx_buf);
+    {        
+				NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n",m_rx_buf);			
+				NRF_LOG_PRINTF("   SPI Rx bytes: %d\r\n",m_length_conv);
     }
 		else
 		{
@@ -88,10 +98,10 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 		}
 		
 		if (m_tx_buf[0] != 0)
-    {
-				//spibuff  
+    {				  
 				//NRF_LOG_PRINTF(" Trasmitted: %s\r\n",m_tx_buf);
-				NRF_LOG_PRINTF("   SPI Trasmitted: %s\r\n",spibuff);
+				NRF_LOG_PRINTF("SPI DATA Tx: %s\r\n",spibuff);
+				NRF_LOG_PRINTF("   SPI Tx bytes: %d\r\n",m_length_conv);
     }
 }
 // SPI END
@@ -195,6 +205,8 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
     }
     while(app_uart_put('\n') != NRF_SUCCESS);
 }
+
+
 /**@snippet [Handling the data received over BLE] */
 
 
@@ -212,6 +224,8 @@ static void services_init(void)
     err_code = ble_nus_init(&m_nus, &nus_init);
     APP_ERROR_CHECK(err_code);
 }
+
+/**@snippet [Handling the data received over BLE] */
 
 
 /**@brief Function for handling an event from the Connection Parameters Module.
@@ -511,7 +525,8 @@ static void uart_init(void)
         //APP_UART_FLOW_CONTROL_ENABLED,
 			  APP_UART_FLOW_CONTROL_DISABLED,
         false,
-        UART_BAUDRATE_BAUDRATE_Baud115200
+        //UART_BAUDRATE_BAUDRATE_Baud115200
+				UART_BAUDRATE_BAUDRATE_Baud9600
     };
 
     APP_UART_FIFO_INIT( &comm_params,
@@ -590,7 +605,53 @@ int main(void)
 {
     uint32_t err_code;
     bool erase_bonds;
+ /*******************************************************************
+	* Table 22. SPI Commands: Thermo-couple
+	*******************************************************************
+	* 0x40 - write starting with register 0 							0x40 
+	* Start with register 0, write to 3 + 1 registers after
 
+	* Write 0x01 to  Register 0:                           0x01
+	* 00 = Burnout current source off (default)
+	* Positive input channel selection bits:
+	* 000 = AIN0 (default)
+	* Negative input channel selection bits:
+	* 001 = AIN1 (default)
+
+	* VBIAS—Bias Voltage Register 1:                       0x02
+	* Bias voltage is applied on VBIAS1
+
+	* MUX1—Multiplexer Control Register 2:                 0x40
+	* 0 = Internal oscillator in use
+	* 10 or 11 = Internal reference is on when a conversion is in progress and shuts down when the
+   device receives a shutdown opcode or the START pin is taken low
+	* 00 = REF0 input pair selected (default)
+	* 000 = Normal operation (default)
+
+	* SYS0—System Control Register 3:                      0x71
+	* Bit 7 This bit must always be set to '0'
+	* PGA2:0 These bits determine the gain of the PGA: 111 = 128
+	* DOR3:0 These bits select the output data rate of the ADC. Bits with a value higher than 1001 select the
+   highest data rate of 2000SPS
+	* 0001 = 10SPS
+
+	* 1. Turn off the burnout current source
+	* 2. Select AIN0 as a positive input
+	* 3. Select AIN1 as a negative input
+	* 4. Bias voltage is applied on VBIAS1
+	* 5. Use internal oscillator
+	* 6. Enable internal reference
+	* 7. Use REF0 input pair
+	* 8. Select normal operation 
+	* 9. Set gain of 128
+	* 10. Set 10 samples per second
+	*/
+		
+		
+		nrf_gpio_cfg_output(21);
+		nrf_gpio_pin_set(21);
+		nrf_gpio_cfg_output(22);
+		nrf_gpio_pin_set(22);
     // Initialize.
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
     uart_init();
@@ -608,30 +669,64 @@ int main(void)
 	   *#define SPI0_CONFIG_MOSI_PIN        17
      *#define SPI0_CONFIG_MISO_PIN        18
 		*/
-		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);
+		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);	// Configure SPI
     spi_config.ss_pin = SPI_CS_PIN;				//#define SPI_CS_PIN   19
     APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
 		//----------------------------------------------------------------------------------
     printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
-    
+    /*
+		spibuff = m_tx_buf;			//07272016
+		// Reset rx buffer and transfer done flag
+    memset(m_rx_buf, 0, m_length);
+    spi_xfer_done = false;				
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length, m_rx_buf, m_length));
+		while (!spi_xfer_done)
+    {
+			__WFE();
+    }
+		*/
+		spibuff = adc_setup_TC;			//07272016	
+
+		// Reset rx buffer and transfer done flag
+    memset(m_rx_buf, 0, m_length);
+    spi_xfer_done = false;				
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		while (!spi_xfer_done)
+    {
+			__WFE();
+    }
+				
+		spibuff = adc_wr_setup;			//07272016	
+		// Reset rx buffer and transfer done flag
+    memset(m_rx_buf, 0, m_length);
+    spi_xfer_done = false;				
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_setup, m_rx_buf, m_length_setup));
+		while (!spi_xfer_done)
+    {
+			__WFE();
+    }
+		nrf_delay_ms(1);
+		
     // Enter main loop.
     for (;;)
     {
 			//-- SPI---
-			  spibuff = m_tx_buf;			//07272016
+			  spibuff = adc_data;			//07272016
 				// Reset rx buffer and transfer done flag
         memset(m_rx_buf, 0, m_length);
         spi_xfer_done = false;				
 				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-			  APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length, m_rx_buf, m_length));
+			  APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_conv, m_rx_buf, m_length_conv));
 				while (!spi_xfer_done)
         {
             __WFE();
         }
+				ble_nus_string_send(&m_nus, m_rx_buf, 6);
 				LEDS_INVERT(BSP_LED_0_MASK);
-        nrf_delay_ms(200);
+        nrf_delay_ms(500);
 			//----SPI END---
         power_manage();
     }

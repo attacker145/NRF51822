@@ -66,19 +66,185 @@ static const nrf_drv_spi_t spi = NRF_DRV_SPI_INSTANCE(SPI_INSTANCE);  /**< SPI i
 static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instance completed the transfer. */
 
 #define TEST_STRING "Nordic"
-static uint8_t       m_tx_buf[] = TEST_STRING;           /**< TX buffer. */
-static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. */
+//static uint8_t       m_tx_buf[] = TEST_STRING;           /**< TX buffer. 6 bytes*/
+//static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. 7 bytes*/
+
+static uint8_t       m_tx_buf[7] = TEST_STRING; /**< TX buffer. 7 bytes*/
+static uint8_t       m_rx_buf[7];    						/**< RX buffer. 7 bytes*/
+
+
 static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
 //SPI configuration and data buffers for ADS1247 ADC
+/*******************************************************************
+	* Table 22. SPI Commands: Thermo-couple
+	*******************************************************************
+	* 
+		n = number of registers to be read or written (number of bytes – 1)
+		r = register (0 to 15)
+		x = don't care
+		
+		Write to register rrrr number of registers nnnn [0100 rrrr (4xh)]	/ 0000_nnnn	
+		0x40 0x03 - Write starting with  reg 00h to 03h (4 registers total)
+				
+	* Write 0x01 to  Register 00h:                         0x01
+			00 = Burnout current source off (default)
+			Positive input channel selection bits:
+			000 = AIN0 (default)
+			Negative input channel selection bits:
+			001 = AIN1 (default)
+
+	* VBIAS—Bias Voltage Register 1:                       0x02
+			Bias voltage is applied on VBIAS1
+
+	* MUX1—Multiplexer Control Register 2:                 0x40
+		0 = Internal oscillator in use
+		10 or 11 = Internal reference is on when a conversion is in progress and shuts down when the device receives a shutdown opcode or the START pin is taken low
+		00 = REF0 input pair selected (default)
+		000 = Normal operation (default)
+
+	* SYS0—System Control Register 3:                      0x71
+		Bit 7 This bit must always be set to '0'
+		PGA2:0 These bits determine the gain of the PGA: 111 = 128
+		DOR3:0 These bits select the output data rate of the ADC. Bits with a value higher than 1001 select the highest data rate of 2000SPS
+		0001 = 10SPS
+
+	* 1. Turn off the burnout current source
+	* 2. Select AIN0 as a positive input
+	* 3. Select AIN1 as a negative input
+	* 4. Bias voltage is applied on VBIAS1
+	* 5. Use internal oscillator
+	* 6. Enable internal reference
+	* 7. Use REF0 input pair
+	* 8. Select normal operation 
+	* 9. Set gain of 128
+	* 10. Set 10 samples per second
+	*/
 static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71}; 	//ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
+//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x00,0x01,0x02,0x03};
 static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
 static uint8_t adc_data[]					= {0,0,0,0,0,0};     								//ADC conv NULL array for 3 bytes each RTD and TC values 
+//static uint8_t adc_data[]					= {0,0,0};
+
 static const uint8_t m_length_setup_tc 	= sizeof(adc_setup_TC);        	/**< Transfer length. */
 static const uint8_t m_length_setup 		= sizeof(adc_wr_setup);        	/**< Transfer length. */
 static const uint8_t m_length_conv 			= sizeof(adc_data);        			/**< Transfer length. */
-
-
+uint8_t Rx_bufc[3];
+uint8_t Rx_buf[10];
+uint8_t tensc;
+uint8_t onesc;
+uint8_t hundredsc;
 static uint8_t *spibuff;
+
+/*
+ * Convert uint32_t hex value to an uint8_t array.
+ */
+void hexdec_long( uint32_t count )
+{	
+    uint8_t ones;
+    uint8_t tens;
+    uint8_t hundreds;
+    uint8_t thousands;
+    uint8_t thousand10s;
+    uint8_t thousand100s;
+    uint8_t mill;
+    uint8_t mill10s;
+    uint8_t mill100s;
+    uint8_t bills;
+    
+		bills						= 0;
+		mill100s				= 0;
+		mill10s					= 0;			
+		mill						= 0;
+		thousand100s 		= 0;
+		thousand10s 		= 0;
+		thousands 			= 0;
+		hundreds 				= 0;
+		tens  					= 0;						
+		ones 						= 0;
+
+		while ( count >= 1000000000 )
+		{
+			count -= 1000000000;				// subtract 1000000000, one billion		
+			bills++;										// increment billions
+		}
+		while ( count >= 100000000 )
+		{
+			count -= 100000000;					// subtract 100000000, 100 million		
+			mill100s++;									// increment 100th millions
+		}
+		while ( count >= 10000000 )
+		{
+			count -= 10000000;					// subtract 10000000		
+			mill10s++;									// increment 10th millions
+		}
+		while ( count >= 1000000 )
+		{
+			count -= 1000000;						// subtract 1000000	
+			mill++;											// increment 1 millions
+		}	
+		while ( count >= 100000 )
+		{
+			count -= 100000;						// subtract 100000		
+			thousand100s++;							// increment 100th thousands
+		}	
+		while ( count >= 10000 )
+		{
+			count -= 10000;             // subtract 10000
+			thousand10s++;							// increment 10th thousands
+		}
+		while ( count >= 1000 )
+		{
+			count -= 1000;							// subtract 1000	
+			thousands++;								// increment thousands
+		}
+		while ( count >= 100 )
+		{
+			count -= 100;               // subtract 100	
+			hundreds++;                 // increment hundreds
+		}
+		while ( count >= 10 )
+		{
+			count -= 10;								// subtract 10		
+			tens++;											// increment tens
+		}
+			ones = count;								// remaining count equals ones
+				
+			Rx_buf[0]= bills + 0x30;    //Conver HEX to character
+			Rx_buf[1]= mill100s + 0x30;
+      Rx_buf[2]= mill10s + 0x30;
+      Rx_buf[3]= mill + 0x30;
+      Rx_buf[4]= thousand100s + 0x30;
+      Rx_buf[5]= thousand10s + 0x30;
+      Rx_buf[6]= thousands + 0x30;
+      Rx_buf[7]= hundreds + 0x30;
+      Rx_buf[8]= tens   + 0x30;
+      Rx_buf[9]= ones + 0x30;
+}
+/*
+ * Convert uint8_t hex value to an uint8_t array.
+ */
+void hexdec_char( uint8_t countc )
+{	
+	hundredsc = 0;
+	tensc  		= 0;						
+	onesc 		= 0;
+	while ( countc >= 100 )
+	{
+		countc -= 100;	// subtract 100
+		hundredsc++;		// increment hundreds
+	}
+
+	while ( countc >= 10 )
+	{
+		countc -= 10;		// subtract 10
+		tensc++;				// increment tens
+	}
+
+	onesc = countc;		// remaining count equals ones
+	Rx_bufc[2] = hundredsc + 0x30;
+	Rx_bufc[1] = tensc + 0x30;
+	Rx_bufc[0] = onesc + 0x30;
+}
 /**
  * @brief SPI user event handler.
  * @param event
@@ -87,22 +253,30 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 {
     spi_xfer_done = true;
     //NRF_LOG_PRINTF(" Transfer completed.\r\n");
+		uint32_t data = 0;
+		data = m_rx_buf[0];
+	  data = data << 8;
+	  data = data + m_rx_buf[1];
+	  data = data << 8;
+	  data = data + m_rx_buf[2];
+		hexdec_long( data );
     if (m_rx_buf[0] != 0)
     {        
-				NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n",m_rx_buf);			
-				NRF_LOG_PRINTF("   SPI Rx bytes: %d\r\n",m_length_conv);
+				//NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n", m_rx_buf);		
+				NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n", Rx_buf);
+				NRF_LOG_PRINTF("   SPI Rx bytes: %d\r\n", m_length_conv);
     }
 		else
 		{
 				printf("SPI Received: No Data\r\n");
 		}
 		
-		if (m_tx_buf[0] != 0)
-    {				  
+		//if (m_tx_buf[0] != 0)
+    //{				  
 				//NRF_LOG_PRINTF(" Trasmitted: %s\r\n",m_tx_buf);
-				NRF_LOG_PRINTF("SPI DATA Tx: %s\r\n",spibuff);
-				NRF_LOG_PRINTF("   SPI Tx bytes: %d\r\n",m_length_conv);
-    }
+		//		NRF_LOG_PRINTF("SPI DATA Tx: %s\r\n",spibuff);
+		//		NRF_LOG_PRINTF("   SPI Tx bytes: %d\r\n",m_length_conv);
+    //}
 }
 // SPI END
 
@@ -605,53 +779,12 @@ int main(void)
 {
     uint32_t err_code;
     bool erase_bonds;
- /*******************************************************************
-	* Table 22. SPI Commands: Thermo-couple
-	*******************************************************************
-	* 0x40 - write starting with register 0 							0x40 
-	* Start with register 0, write to 3 + 1 registers after
-
-	* Write 0x01 to  Register 0:                           0x01
-	* 00 = Burnout current source off (default)
-	* Positive input channel selection bits:
-	* 000 = AIN0 (default)
-	* Negative input channel selection bits:
-	* 001 = AIN1 (default)
-
-	* VBIAS—Bias Voltage Register 1:                       0x02
-	* Bias voltage is applied on VBIAS1
-
-	* MUX1—Multiplexer Control Register 2:                 0x40
-	* 0 = Internal oscillator in use
-	* 10 or 11 = Internal reference is on when a conversion is in progress and shuts down when the
-   device receives a shutdown opcode or the START pin is taken low
-	* 00 = REF0 input pair selected (default)
-	* 000 = Normal operation (default)
-
-	* SYS0—System Control Register 3:                      0x71
-	* Bit 7 This bit must always be set to '0'
-	* PGA2:0 These bits determine the gain of the PGA: 111 = 128
-	* DOR3:0 These bits select the output data rate of the ADC. Bits with a value higher than 1001 select the
-   highest data rate of 2000SPS
-	* 0001 = 10SPS
-
-	* 1. Turn off the burnout current source
-	* 2. Select AIN0 as a positive input
-	* 3. Select AIN1 as a negative input
-	* 4. Bias voltage is applied on VBIAS1
-	* 5. Use internal oscillator
-	* 6. Enable internal reference
-	* 7. Use REF0 input pair
-	* 8. Select normal operation 
-	* 9. Set gain of 128
-	* 10. Set 10 samples per second
-	*/
-		
-		
+ 				
 		nrf_gpio_cfg_output(21);
 		nrf_gpio_pin_set(21);
 		nrf_gpio_cfg_output(22);
 		nrf_gpio_pin_set(22);
+		nrf_gpio_cfg_input(23, NRF_GPIO_PIN_NOPULL );
     // Initialize.
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
     uart_init();
@@ -714,19 +847,22 @@ int main(void)
     for (;;)
     {
 			//-- SPI---
-			  spibuff = adc_data;			//07272016
-				// Reset rx buffer and transfer done flag
-        memset(m_rx_buf, 0, m_length);
-        spi_xfer_done = false;				
-				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-			  APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_conv, m_rx_buf, m_length_conv));
-				while (!spi_xfer_done)
-        {
+				if(!nrf_gpio_pin_read (23)){//!DRDY
+					spibuff = adc_data;			//07272016
+					// Reset rx buffer and transfer done flag
+					memset(m_rx_buf, 0, m_length);
+					spi_xfer_done = false;				
+					//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
+					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_conv, m_rx_buf, m_length_conv));
+					while (!spi_xfer_done)
+					{
             __WFE();
-        }
-				ble_nus_string_send(&m_nus, m_rx_buf, 6);
-				LEDS_INVERT(BSP_LED_0_MASK);
-        nrf_delay_ms(500);
+					}
+					//ble_nus_string_send(&m_nus, m_rx_buf, 6);  //Rx_buf
+					ble_nus_string_send(&m_nus, Rx_buf, 10);
+					LEDS_INVERT(BSP_LED_0_MASK);
+					nrf_delay_ms(500);
+			}
 			//----SPI END---
         power_manage();
     }

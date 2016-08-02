@@ -70,7 +70,7 @@ static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instanc
 //static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. 7 bytes*/
 
 //static uint8_t       m_tx_buf[7] = TEST_STRING; /**< TX buffer. 7 bytes*/
-static uint8_t       m_rx_buf[7];    						/**< RX buffer. 7 bytes*/
+static uint8_t       m_rx_buf[6];    						/**< RX buffer. 7 bytes*/
 
 
 //static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
@@ -124,18 +124,23 @@ static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71}; 	//ADC TC con
 //static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
 static uint8_t adc_data[]					= {0,0,0,0,0,0};     								//ADC conv NULL array for 3 bytes each RTD and TC values 
 //static uint8_t adc_data[]					= {0,0,0};
-static uint8_t read_data_cont [] = {0x14};
+//static uint8_t read_data_cont [] = {0x14};
+
+static uint8_t read_reg [] = {0x20,0x03,0,0,0,0};
 
 static const uint8_t m_length_setup_tc 					= sizeof(adc_setup_TC);        	/**< Transfer length. */
 //static const uint8_t m_length_setup 					= sizeof(adc_wr_setup);        	/**< Transfer length. */
 static const uint8_t m_length_conv 							= sizeof(adc_data);        			/**< Transfer length. */
-static const uint8_t length_read_data_cont 			= sizeof(read_data_cont);        			/**< Transfer length. */
+//static const uint8_t length_read_data_cont 			= sizeof(read_data_cont);       /**< Transfer length. */
+static const uint8_t length_read_reg 						= sizeof(read_reg);        			/**< Transfer length. */
+
+
 uint8_t Rx_bufc[3];
 uint8_t Rx_buf[10];
 uint8_t tensc;
 uint8_t onesc;
 uint8_t hundredsc;
-static uint8_t *spibuff;
+static uint8_t *spi_tx_buff_ptr;
 
 /*
  * Convert uint32_t hex value to an uint8_t array.
@@ -279,6 +284,15 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 		//		NRF_LOG_PRINTF("SPI DATA Tx: %s\r\n",spibuff);
 		//		NRF_LOG_PRINTF("   SPI Tx bytes: %d\r\n",m_length_conv);
     //}
+}
+/**
+ * @brief SPI user event handler.
+ * @param event
+ */
+void spi_event_handler_init(nrf_drv_spi_evt_t const * p_event)
+{
+    spi_xfer_done = true;
+    NRF_LOG_PRINTF(" Transfer completed.\r\n");		
 }
 // SPI END
 
@@ -782,12 +796,21 @@ int main(void)
     uint32_t err_code;
     bool erase_bonds;
  				
-		nrf_gpio_cfg_output(21);
-		nrf_gpio_pin_set(21);
-		nrf_gpio_cfg_output(22);
-		nrf_gpio_pin_set(22);
+		nrf_gpio_cfg_output(21);				// START
+		nrf_gpio_pin_set(21);						// START set high
+		nrf_gpio_cfg_output(22);				// ADC RESET
+		nrf_gpio_pin_set(22);						// ADC RESET set hight
 		nrf_gpio_cfg_input(23, NRF_GPIO_PIN_NOPULL );
-	
+		//RESET pin low, START pin low, CS high
+		nrf_gpio_pin_clear(22);					// RESET pin low
+		nrf_gpio_pin_clear(21);					// START pin low
+		nrf_delay_ms(40);
+		//RESET pin high, START pin high		
+		nrf_gpio_pin_set(21);			  		// START pin high
+		nrf_delay_ms(2);
+		nrf_gpio_pin_set(22);						// RESET pin high
+		
+		
     // Initialize.
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
     uart_init();
@@ -807,7 +830,8 @@ int main(void)
 		*/
 		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);	// Configure SPI nrf_drv_spi.h line 151
     spi_config.ss_pin = SPI_CS_PIN;				//CS is pin 19
-    APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
+    //APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler)); //spi_event_handler_init
+		APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler_init));
 		//----------------------------------------------------------------------------------
     printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
@@ -817,16 +841,18 @@ int main(void)
 		
 		
 		//while(1){
-		spibuff = adc_setup_TC;	//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+		spi_tx_buff_ptr = adc_setup_TC;	//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
 		// Reset rx buffer and transfer done flag
     memset(m_rx_buf, 0, m_length_setup_tc);
     spi_xfer_done = false;				
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
 		while (!spi_xfer_done)
     {
 			__WFE();
     }
+		
+		//nrf_drv_spi_uninit(&spi);
 		
 		hexdec_char( (uint8_t) adc_setup_TC[0] );				// Fills up Rx_bufc		
 		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);	
@@ -841,23 +867,55 @@ int main(void)
 		hexdec_char( (uint8_t) adc_setup_TC[5] );				// Fills up Rx_bufc
 		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);
 		
-		nrf_delay_ms(1);
+		nrf_delay_ms(10);
 	//}
 		
+				
+    //APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
 		
-		spibuff = read_data_cont;				
+		spi_tx_buff_ptr = read_reg;		
 		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, length_read_data_cont);
-    spi_xfer_done = false;				
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, length_read_data_cont, m_rx_buf, length_read_data_cont));
+    memset(m_rx_buf, 0, length_read_reg);
+    spi_xfer_done = false;
+			
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
 		while (!spi_xfer_done)
     {
 			__WFE();
     }
 		
+		hexdec_char( (uint8_t) m_rx_buf[0] );
+		NRF_LOG_PRINTF("SPI Reg0: %s\r\n", Rx_bufc);	
+		hexdec_char( (uint8_t) m_rx_buf[1] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI Reg1: %s\r\n", Rx_bufc);
+		hexdec_char( (uint8_t) m_rx_buf[2] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI Reg2: %s\r\n", Rx_bufc);
+		hexdec_char( (uint8_t) m_rx_buf[3] );				// Fills up Rx_bufc		
+		NRF_LOG_PRINTF("SPI Reg3: %s\r\n", Rx_bufc);	
+		hexdec_char( (uint8_t) m_rx_buf[4] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI Reg4: %s\r\n", Rx_bufc);
+		hexdec_char( (uint8_t) m_rx_buf[5] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI Reg5: %s\r\n", Rx_bufc);
+		
+		/*
+		spi_tx_buff_ptr = read_data_cont;				
+		// Reset rx buffer and transfer done flag
+    memset(m_rx_buf, 0, length_read_data_cont);
+    spi_xfer_done = false;				
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_data_cont, m_rx_buf, length_read_data_cont));
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_data_cont, length_read_data_cont, m_rx_buf, length_read_data_cont));
+		while (!spi_xfer_done)
+    {
+			__WFE();
+    }
+		hexdec_char( (uint8_t) read_data_cont[0] );				// Fills up Rx_bufc		
+		NRF_LOG_PRINTF("Read Data Cont: %s\r\n", Rx_bufc);
 		nrf_delay_ms(1);
-		
-		
+		*/
+		nrf_drv_spi_uninit(&spi);
+		nrf_delay_ms(10);
+		APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
 		
     // The main loop.
     for (;;)
@@ -867,12 +925,12 @@ int main(void)
 					power_manage();
 				}//!DRDY	
 				
-				spibuff = adc_data;
+				spi_tx_buff_ptr = adc_data;
 				// Reset rx buffer and transfer done flag
 				memset(m_rx_buf, 0, m_length_conv);
 				spi_xfer_done = false;				
 				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_conv, m_rx_buf, m_length_conv));
+				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_conv, m_rx_buf, m_length_conv));
 				while (!spi_xfer_done)
 				{
             __WFE();

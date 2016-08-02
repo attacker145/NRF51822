@@ -69,16 +69,16 @@ static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instanc
 //static uint8_t       m_tx_buf[] = TEST_STRING;           /**< TX buffer. 6 bytes*/
 //static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. 7 bytes*/
 
-static uint8_t       m_tx_buf[7] = TEST_STRING; /**< TX buffer. 7 bytes*/
+//static uint8_t       m_tx_buf[7] = TEST_STRING; /**< TX buffer. 7 bytes*/
 static uint8_t       m_rx_buf[7];    						/**< RX buffer. 7 bytes*/
 
 
-static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
+//static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
 //SPI configuration and data buffers for ADS1247 ADC
 /*******************************************************************
-	* Table 22. SPI Commands: Thermo-couple
+	* SPI Commands: Thermo Couple Config
 	*******************************************************************
-	* 
+	* {0x40,0x03,0x01,0x02,0x40,0x71}
 		n = number of registers to be read or written (number of bytes – 1)
 		r = register (0 to 15)
 		x = don't care
@@ -121,13 +121,15 @@ static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. *
 	*/
 static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71}; 	//ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
 //static uint8_t adc_setup_TC[]			= {0x40,0x03,0x00,0x01,0x02,0x03};
-static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
+//static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
 static uint8_t adc_data[]					= {0,0,0,0,0,0};     								//ADC conv NULL array for 3 bytes each RTD and TC values 
 //static uint8_t adc_data[]					= {0,0,0};
+static uint8_t read_data_cont [] = {0x14};
 
-static const uint8_t m_length_setup_tc 	= sizeof(adc_setup_TC);        	/**< Transfer length. */
-static const uint8_t m_length_setup 		= sizeof(adc_wr_setup);        	/**< Transfer length. */
-static const uint8_t m_length_conv 			= sizeof(adc_data);        			/**< Transfer length. */
+static const uint8_t m_length_setup_tc 					= sizeof(adc_setup_TC);        	/**< Transfer length. */
+//static const uint8_t m_length_setup 					= sizeof(adc_wr_setup);        	/**< Transfer length. */
+static const uint8_t m_length_conv 							= sizeof(adc_data);        			/**< Transfer length. */
+static const uint8_t length_read_data_cont 			= sizeof(read_data_cont);        			/**< Transfer length. */
 uint8_t Rx_bufc[3];
 uint8_t Rx_buf[10];
 uint8_t tensc;
@@ -241,9 +243,9 @@ void hexdec_char( uint8_t countc )
 	}
 
 	onesc = countc;		// remaining count equals ones
-	Rx_bufc[2] = hundredsc + 0x30;
+	Rx_bufc[0] = hundredsc + 0x30;
 	Rx_bufc[1] = tensc + 0x30;
-	Rx_bufc[0] = onesc + 0x30;
+	Rx_bufc[2] = onesc + 0x30;
 }
 /**
  * @brief SPI user event handler.
@@ -253,13 +255,13 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 {
     spi_xfer_done = true;
     //NRF_LOG_PRINTF(" Transfer completed.\r\n");
-		uint32_t data = 0;
-		data = m_rx_buf[0];
-	  data = data << 8;
-	  data = data + m_rx_buf[1];
-	  data = data << 8;
-	  data = data + m_rx_buf[2];
-		hexdec_long( data );
+		uint32_t Result = 0;
+		Result = m_rx_buf[0];
+	  Result = Result << 8;
+	  Result = (Result | m_rx_buf[1]);
+	  Result = Result << 8;
+	  Result = (Result | m_rx_buf[2]);
+		hexdec_long( Result );				// Fills up Rx_buf
     if (m_rx_buf[0] != 0)
     {        
 				//NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n", m_rx_buf);		
@@ -785,6 +787,7 @@ int main(void)
 		nrf_gpio_cfg_output(22);
 		nrf_gpio_pin_set(22);
 		nrf_gpio_cfg_input(23, NRF_GPIO_PIN_NOPULL );
+	
     // Initialize.
     APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
     uart_init();
@@ -802,70 +805,83 @@ int main(void)
 	   *#define SPI0_CONFIG_MOSI_PIN        17
      *#define SPI0_CONFIG_MISO_PIN        18
 		*/
-		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);	// Configure SPI
-    spi_config.ss_pin = SPI_CS_PIN;				//#define SPI_CS_PIN   19
+		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);	// Configure SPI nrf_drv_spi.h line 151
+    spi_config.ss_pin = SPI_CS_PIN;				//CS is pin 19
     APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
 		//----------------------------------------------------------------------------------
     printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
-    /*
-		spibuff = m_tx_buf;			//07272016
+    
+		
+		
+		
+		//while(1){
+		spibuff = adc_setup_TC;	//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
 		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, m_length);
+    memset(m_rx_buf, 0, m_length_setup_tc);
     spi_xfer_done = false;				
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length, m_rx_buf, m_length));
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
 		while (!spi_xfer_done)
     {
 			__WFE();
     }
-		*/
-		spibuff = adc_setup_TC;			//07272016	
-
+		
+		hexdec_char( (uint8_t) adc_setup_TC[0] );				// Fills up Rx_bufc		
+		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);	
+		hexdec_char( (uint8_t) adc_setup_TC[1] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);
+		hexdec_char( (uint8_t) adc_setup_TC[2] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);
+		hexdec_char( (uint8_t) adc_setup_TC[3] );				// Fills up Rx_bufc		
+		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);	
+		hexdec_char( (uint8_t) adc_setup_TC[4] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);
+		hexdec_char( (uint8_t) adc_setup_TC[5] );				// Fills up Rx_bufc
+		NRF_LOG_PRINTF("SPI TC config: %s\r\n", Rx_bufc);
+		
+		nrf_delay_ms(1);
+	//}
+		
+		
+		spibuff = read_data_cont;				
 		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, m_length);
+    memset(m_rx_buf, 0, length_read_data_cont);
     spi_xfer_done = false;				
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, length_read_data_cont, m_rx_buf, length_read_data_cont));
 		while (!spi_xfer_done)
     {
 			__WFE();
     }
-				
-		spibuff = adc_wr_setup;			//07272016	
-		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, m_length);
-    spi_xfer_done = false;				
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_setup, m_rx_buf, m_length_setup));
-		while (!spi_xfer_done)
-    {
-			__WFE();
-    }
+		
 		nrf_delay_ms(1);
 		
-    // Enter main loop.
+		
+		
+    // The main loop.
     for (;;)
     {
 			//-- SPI---
-				if(!nrf_gpio_pin_read (23)){//!DRDY
-					spibuff = adc_data;			//07272016
-					// Reset rx buffer and transfer done flag
-					memset(m_rx_buf, 0, m_length);
-					spi_xfer_done = false;				
-					//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_conv, m_rx_buf, m_length_conv));
-					while (!spi_xfer_done)
-					{
+				while(nrf_gpio_pin_read (23)){
+					power_manage();
+				}//!DRDY	
+				
+				spibuff = adc_data;
+				// Reset rx buffer and transfer done flag
+				memset(m_rx_buf, 0, m_length_conv);
+				spi_xfer_done = false;				
+				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
+				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spibuff, m_length_conv, m_rx_buf, m_length_conv));
+				while (!spi_xfer_done)
+				{
             __WFE();
-					}
+				}
 					//ble_nus_string_send(&m_nus, m_rx_buf, 6);  //Rx_buf
-					ble_nus_string_send(&m_nus, Rx_buf, 10);
-					LEDS_INVERT(BSP_LED_0_MASK);
-					nrf_delay_ms(500);
-			}
-			//----SPI END---
-        power_manage();
-    }
+				ble_nus_string_send(&m_nus, Rx_buf, 10);
+				LEDS_INVERT(BSP_LED_0_MASK);
+				nrf_delay_ms(500);
+			}					           
 }
 
 

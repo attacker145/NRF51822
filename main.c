@@ -70,7 +70,11 @@ static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instanc
 //static uint8_t       m_rx_buf[sizeof(TEST_STRING)+1];    /**< RX buffer. 7 bytes*/
 
 //static uint8_t       m_tx_buf[7] = TEST_STRING; /**< TX buffer. 7 bytes*/
-static uint8_t       m_rx_buf[7];    						/**< RX buffer. 7 bytes*/
+static uint8_t       m_rx_buf[13] = {0,0,0,0,0,0,0,0,0,0,0,0,0};    						/**< RX buffer. 7 bytes*/
+
+uint8_t	temp_buf[18];
+uint8_t	temp_buf1[27];
+uint8_t temp_buf2[3];
 
 
 //static const uint8_t m_length = sizeof(m_tx_buf);        /**< Transfer length. */
@@ -93,16 +97,17 @@ static uint8_t       m_rx_buf[7];    						/**< RX buffer. 7 bytes*/
 			Negative input channel selection bits:
 			001 = AIN1 (default)
 
-	* VBIAS—Bias Voltage Register 1:                       0x02
+	* Write 0x02 to  Register 01h. 
+		VBIAS—Bias Voltage Register 1:                       0x02 0b0000 0010
 			Bias voltage is applied on VBIAS1
 
-	* MUX1—Multiplexer Control Register 2:                 0x40
+	* MUX1—Multiplexer Control Register 2:                 0x40 0b0100 0000
 		0 = Internal oscillator in use
 		10 or 11 = Internal reference is on when a conversion is in progress and shuts down when the device receives a shutdown opcode or the START pin is taken low
 		00 = REF0 input pair selected (default)
 		000 = Normal operation (default)
 
-	* SYS0—System Control Register 3:                      0x71
+	* SYS0—System Control Register 3:                      0x71 0b0111 0001
 		Bit 7 This bit must always be set to '0'
 		PGA2:0 These bits determine the gain of the PGA: 111 = 128
 		DOR3:0 These bits select the output data rate of the ADC. Bits with a value higher than 1001 select the highest data rate of 2000SPS
@@ -118,29 +123,44 @@ static uint8_t       m_rx_buf[7];    						/**< RX buffer. 7 bytes*/
 	* 8. Select normal operation 
 	* 9. Set gain of 128
 	* 10. Set 10 samples per second
+	ADC_WR_SETUP_RTD[]={0x40,0x03,0x13,0x00,0x40,0x41};
 	*/
-static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71}; 	//ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
-//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x00,0x01,0x02,0x03};
-//static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
-static uint8_t adc_data[]					= {0,0,0,0,0,0};     								//ADC conv NULL array for 3 bytes each RTD and TC values 
-//static uint8_t adc_data[]					= {0,0,0};
-//static uint8_t read_data_cont [] = {0x14};
+static const uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71}; 	 //ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
+//static const uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x70};
+//static const uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x01}; 
+//static const uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x78};
+//uint8_t const adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x00,0x71};
+//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x00,0x40,0x70};
 
-static uint8_t read_reg [] = {0x20,0x03,0,0,0,0};
+//static uint8_t adc_wr_setup[]			= {0,0,0,0,0,0};     								//ADC setup NULL array
+
+static const uint8_t adc_data[]					= {0xff,0xff,0xff};     				//ADC conv NULL array for 3 bytes each RTD and TC values
+//uint8_t const adc_data[]					= {0,0,0,0,0,0};
+//static uint8_t read_data_cont [] = {0x14};
+//static uint8_t read_single_reg [] = {0x23,0x00,0x00};
+
+static const uint8_t read_reg [] = {0x20,0x03,0x00,0x00,0x00,0x00};
+//uint8_t const read_reg [] = {0x20,0x05,0x00,0x00,0x00,0x00,0x00,0x00};
+//static uint8_t test [] = {0x55, 0x00, 0xFF, 0x00};
+
+
 
 static const uint8_t m_length_setup_tc 					= sizeof(adc_setup_TC);        	/**< Transfer length. */
+ 
 //static const uint8_t m_length_setup 					= sizeof(adc_wr_setup);        	/**< Transfer length. */
-static const uint8_t m_length_conv 							= sizeof(adc_data);        			/**< Transfer length. */
+static uint8_t m_length_conv 							= sizeof(adc_data);        			/**< Transfer length. */
 //static const uint8_t length_read_data_cont 			= sizeof(read_data_cont);       /**< Transfer length. */
 static const uint8_t length_read_reg 						= sizeof(read_reg);        			/**< Transfer length. */
-
+static const uint8_t length_rx_buf 						= sizeof(m_rx_buf);
+//static const uint8_t length_test 								= sizeof(test); 
+//static const uint8_t length_read_ID 						= sizeof(read_single_reg);m_rx_buf
 
 uint8_t Rx_bufc[3];
 uint8_t Rx_buf[10];
 uint8_t tensc;
 uint8_t onesc;
 uint8_t hundredsc;
-static uint8_t *spi_tx_buff_ptr;
+uint8_t const * spi_tx_buff_ptr;
 
 /*
  * Convert uint32_t hex value to an uint8_t array.
@@ -261,23 +281,27 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
     spi_xfer_done = true;
     //NRF_LOG_PRINTF(" Transfer completed.\r\n");
 		uint32_t Result = 0;
-		Result = m_rx_buf[0];
-	  Result = Result << 8;
-	  Result = (Result | m_rx_buf[1]);
-	  Result = Result << 8;
-	  Result = (Result | m_rx_buf[2]);
+		Result = (uint32_t) m_rx_buf[0];
+	  Result = (Result << 8);
+	  Result = (Result + (uint32_t)m_rx_buf[1]);
+	  Result = (Result << 8);
+	  Result = (Result + (uint32_t)m_rx_buf[2]);
 		hexdec_long( Result );				// Fills up Rx_buf
+//#define UART_SPI
+#ifdef UART_SPI	
     if (m_rx_buf[0] != 0)
-    {        
-				//NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n", m_rx_buf);		
+    {  
+      
+				NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n", m_rx_buf);		
 				NRF_LOG_PRINTF("SPI DATA Rx: %s\r\n", Rx_buf);
 				NRF_LOG_PRINTF("   SPI Rx bytes: %d\r\n", m_length_conv);
+			
     }
 		else
 		{
-				printf("SPI Received: No Data\r\n");
+				//printf("SPI Received: No Data\r\n");
 		}
-		
+#endif		
 		//if (m_tx_buf[0] != 0)
     //{				  
 				//NRF_LOG_PRINTF(" Trasmitted: %s\r\n",m_tx_buf);
@@ -285,14 +309,16 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 		//		NRF_LOG_PRINTF("   SPI Tx bytes: %d\r\n",m_length_conv);
     //}
 }
+
 /**
  * @brief SPI user event handler.
  * @param event
  */
+
 void spi_event_handler_init(nrf_drv_spi_evt_t const * p_event)
 {
     spi_xfer_done = true;
-    NRF_LOG_PRINTF(" Transfer completed.\r\n");		
+    //NRF_LOG_PRINTF(" Transfer completed.\r\n");		
 }
 // SPI END
 
@@ -794,8 +820,16 @@ static void power_manage(void)
 int main(void)
 {
     uint32_t err_code;
-    bool erase_bonds;
- 				
+		uint8_t cntr = 0;
+	
+		uint8_t str1[] = "Number Bytes sent";	
+		uint8_t str2[] = "Config Data:";
+		uint8_t str3[] = "Regist Data:";
+		uint8_t str4[] = "*******************";
+//		uint8_t str5[] = "!DRDY, RDATAC sent";
+		
+    bool 		erase_bonds;
+								
 		nrf_gpio_cfg_output(21);				// START
 		nrf_gpio_pin_set(21);						// START set high
 		nrf_gpio_cfg_output(22);				// ADC RESET
@@ -830,130 +864,257 @@ int main(void)
 		*/
 		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);	// Configure SPI nrf_drv_spi.h line 151
     spi_config.ss_pin = SPI_CS_PIN;				//CS is pin 19
-    //APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler)); //spi_event_handler_init
-		APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler_init));
+    APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler)); //spi_event_handler_init
+		//APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler_init));
+		
+		
+		
 		//----------------------------------------------------------------------------------
+		// Initialize ADC******************************************************************************************
+		//while(1){
+		nrf_delay_ms(1);	
+		spi_tx_buff_ptr = adc_setup_TC;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+		// Reset rx buffer and transfer done flag
+    memset(m_rx_buf, 0, length_rx_buf);
+    spi_xfer_done = false;
+		//Configure ADC		
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+		while (!spi_xfer_done)
+    {
+			__WFE();
+    }		
+		//nrf_drv_spi_uninit(&spi);		
+		hexdec_char( (uint8_t) m_length_setup_tc );		// Number of bytes sent
+		temp_buf2[0] = Rx_bufc[0];
+		temp_buf2[1] = Rx_bufc[1];
+		temp_buf2[2] = Rx_bufc[2];
+		//NRF_LOG_PRINTF("Bytes sent: %s\r\n", Rx_bufc);
+		
+		
+		// Config. data
+		hexdec_char( (uint8_t) adc_setup_TC[0] );				// Fills up Rx_bufc	
+		temp_buf[0] = Rx_bufc[0];
+		temp_buf[1] = Rx_bufc[1];
+		temp_buf[2] = Rx_bufc[2];	
+		hexdec_char( (uint8_t) adc_setup_TC[1] );				// Fills up Rx_bufc
+		temp_buf[3] = Rx_bufc[0];
+		temp_buf[4] = Rx_bufc[1];
+		temp_buf[5] = Rx_bufc[2];
+		hexdec_char( (uint8_t) adc_setup_TC[2] );				// Fills up Rx_bufc
+		temp_buf[6] = Rx_bufc[0];
+		temp_buf[7] = Rx_bufc[1];
+		temp_buf[8] = Rx_bufc[2];
+		hexdec_char( (uint8_t) adc_setup_TC[3] );				// Fills up Rx_bufc	
+		temp_buf[9] = Rx_bufc[0];
+		temp_buf[10] = Rx_bufc[1];
+		temp_buf[11] = Rx_bufc[2];	
+		hexdec_char( (uint8_t) adc_setup_TC[4] );				// Fills up Rx_bufc
+		temp_buf[12] = Rx_bufc[0];
+		temp_buf[13] = Rx_bufc[1];
+		temp_buf[14] = Rx_bufc[2];
+		hexdec_char( (uint8_t) adc_setup_TC[5] );				// Fills up Rx_bufc
+		temp_buf[15] = Rx_bufc[0];
+		temp_buf[16] = Rx_bufc[1];
+		temp_buf[17] = Rx_bufc[2];		
+		NRF_LOG_PRINTF("Send Reg: %s\r\n", temp_buf);
+		
+				
+		nrf_delay_ms(1);					
+		//Read Registers *************************************************************************************************************
+		spi_tx_buff_ptr = read_reg;		// Initialize pointer to read register buffer	
+		// Reset rx buffer and transfer done flag
+    memset(m_rx_buf, 0, length_rx_buf);
+    spi_xfer_done = false;	
+		// Read internal registers into m_rx_buf
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
+		while (!spi_xfer_done)
+    {
+			__WFE();
+    }
+		
+		//{0x20,0x05,0x00,0x00,0x00,0x00,0x00,0x00};
+		//nrf_drv_spi_uninit(&spi);
+		hexdec_char( (uint8_t) read_reg [0]);
+		temp_buf1[0] = Rx_bufc[0];
+		temp_buf1[1] = Rx_bufc[1];
+		temp_buf1[2] = Rx_bufc[2];
+		hexdec_char( (uint8_t) read_reg [1]);
+		temp_buf1[3] = Rx_bufc[0];
+		temp_buf1[4] = Rx_bufc[1];
+		temp_buf1[5] = Rx_bufc[2];		
+		hexdec_char( (uint8_t) m_rx_buf[2] );				// Returned Data Fills up Rx_bufc
+		temp_buf1[6] = Rx_bufc[0];
+		temp_buf1[7] = Rx_bufc[1];
+		temp_buf1[8] = Rx_bufc[2];
+		hexdec_char( (uint8_t) m_rx_buf[3] );				// Returned Data Fills up Rx_bufc
+		temp_buf1[9] = Rx_bufc[0];
+		temp_buf1[10] = Rx_bufc[1];
+		temp_buf1[11] = Rx_bufc[2];
+		hexdec_char( (uint8_t) m_rx_buf[4] );				// Returned Data Fills up Rx_bufc
+		temp_buf1[12] = Rx_bufc[0];
+		temp_buf1[13] = Rx_bufc[1];
+		temp_buf1[14] = Rx_bufc[2];
+		hexdec_char( (uint8_t) m_rx_buf[5] );				// Returned Data Fills up Rx_bufc		
+		temp_buf1[15]  = Rx_bufc[0];
+		temp_buf1[16] = Rx_bufc[1];
+		temp_buf1[17] = Rx_bufc[2];	
+		//hexdec_char( (uint8_t) m_rx_buf[6] );				// Fills up Rx_bufc
+		//temp_buf1[18] = Rx_bufc[0];
+		//temp_buf1[19] = Rx_bufc[1];
+		//temp_buf1[20] = Rx_bufc[2];
+		//hexdec_char( (uint8_t) m_rx_buf[7] );				// Fills up Rx_bufc
+		//temp_buf1[21] = Rx_bufc[0];
+		//temp_buf1[22] = Rx_bufc[1];
+		//temp_buf1[23] = Rx_bufc[2];
+		//hexdec_char( (uint8_t) m_rx_buf[8] );
+		//temp_buf1[24] = Rx_bufc[0];
+		//temp_buf1[25] = Rx_bufc[1];
+		//temp_buf1[26] = Rx_bufc[2];	
+		//hexdec_char( (uint8_t) m_rx_buf[9] );				// Fills up Rx_bufc
+		//temp_buf1[27] = Rx_bufc[0];
+		//temp_buf1[28] = Rx_bufc[1];
+		//temp_buf1[29] = Rx_bufc[2];
+		//hexdec_char( (uint8_t) m_rx_buf[10] );				// Fills up Rx_bufc
+		//temp_buf1[30] = Rx_bufc[0];
+		//temp_buf1[31] = Rx_bufc[1];
+		//temp_buf1[32] = Rx_bufc[2];
+		NRF_LOG_PRINTF("Read Reg: %s\r\n", temp_buf1);		
+		//hexdec_char( (uint8_t) m_rx_buf[9] );				// Fills up Rx_bufc		
+		//NRF_LOG_PRINTF("Read Reg9: %s\r\n", Rx_bufc);	
+		//hexdec_char( (uint8_t) m_rx_buf[10] );				// Fills up Rx_bufc
+		//NRF_LOG_PRINTF("Read Reg10: %s\r\n", Rx_bufc);
+		//hexdec_char( (uint8_t) m_rx_buf[11] );				// Fills up Rx_bufc
+		//NRF_LOG_PRINTF("Read Reg11: %s\r\n", Rx_bufc);
+		nrf_delay_ms(100);
+	//}
+		
+	
+	
+		//nrf_drv_spi_uninit(&spi);
+		//nrf_delay_ms(10);
+		//APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler)); // Run handler
+		
+		
     printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
-    
+    										
+/*				
+		while(nrf_gpio_pin_read (23)){} // Wait for !DRDY
 		
-		
-		
-		//while(1){
-		spi_tx_buff_ptr = adc_setup_TC;	//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+		ble_nus_string_send(&m_nus, str5, sizeof(str5));
+		spi_tx_buff_ptr = read_data_cont;	//Read data continuously
 		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, m_length_setup_tc);
-    spi_xfer_done = false;				
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		while (!spi_xfer_done)
-    {
-			__WFE();
-    }
-		
-		/*
-		//adc_wr_setup, m_length_setup 				
-		spi_tx_buff_ptr = adc_wr_setup;	//static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
-		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, m_length_setup);
-    spi_xfer_done = false;				
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup, m_rx_buf, m_length_setup));
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		while (!spi_xfer_done)
-    {
-			__WFE();
-    }
-		*/
-		
-		//nrf_drv_spi_uninit(&spi);
-		
-		hexdec_char( (uint8_t) adc_setup_TC[0] );				// Fills up Rx_bufc		
-		NRF_LOG_PRINTF("SPI TC config R0: %s\r\n", Rx_bufc);	
-		hexdec_char( (uint8_t) adc_setup_TC[1] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("SPI TC config R1: %s\r\n", Rx_bufc);
-		hexdec_char( (uint8_t) adc_setup_TC[2] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("SPI TC config R2: %s\r\n", Rx_bufc);
-		hexdec_char( (uint8_t) adc_setup_TC[3] );				// Fills up Rx_bufc		
-		NRF_LOG_PRINTF("SPI TC config R3: %s\r\n", Rx_bufc);	
-		hexdec_char( (uint8_t) adc_setup_TC[4] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("SPI TC config R4: %s\r\n", Rx_bufc);
-		hexdec_char( (uint8_t) adc_setup_TC[5] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("SPI TC config R5: %s\r\n", Rx_bufc);
-		
-		nrf_delay_ms(10);
-
-
-
-		
-    //APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
-		
-		spi_tx_buff_ptr = read_reg;		
-		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, length_read_reg);
-    spi_xfer_done = false;
-			
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		while (!spi_xfer_done)
-    {
-			__WFE();
-    }
-		
-		hexdec_char( (uint8_t) m_rx_buf[0] );
-		NRF_LOG_PRINTF("Reg0: %s\r\n", Rx_bufc);	
-		hexdec_char( (uint8_t) m_rx_buf[1] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("Reg1: %s\r\n", Rx_bufc);
-		hexdec_char( (uint8_t) m_rx_buf[2] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("Reg2: %s\r\n", Rx_bufc);
-		hexdec_char( (uint8_t) m_rx_buf[3] );				// Fills up Rx_bufc		
-		NRF_LOG_PRINTF("Reg3: %s\r\n", Rx_bufc);	
-		hexdec_char( (uint8_t) m_rx_buf[4] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("Reg4: %s\r\n", Rx_bufc);
-		hexdec_char( (uint8_t) m_rx_buf[5] );				// Fills up Rx_bufc
-		NRF_LOG_PRINTF("Reg5: %s\r\n", Rx_bufc);
-		
-		/*
-		spi_tx_buff_ptr = read_data_cont;				
-		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, length_read_data_cont);
-    spi_xfer_done = false;				
+		memset(m_rx_buf, 0, length_rx_buf);
+		spi_xfer_done = false;				
+		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
 		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_data_cont, m_rx_buf, length_read_data_cont));
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_data_cont, length_read_data_cont, m_rx_buf, length_read_data_cont));
 		while (!spi_xfer_done)
-    {
-			__WFE();
-    }
-		hexdec_char( (uint8_t) read_data_cont[0] );				// Fills up Rx_bufc		
-		NRF_LOG_PRINTF("Read Data Cont: %s\r\n", Rx_bufc);
-		nrf_delay_ms(1);
-		*/
-		nrf_drv_spi_uninit(&spi);
-		nrf_delay_ms(10);
-		APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler));
-		
-    // The main loop.
+		{
+				__WFE();
+		}
+		nrf_delay_ms(10);				
+*/		
+		// The main loop.
     for (;;)
     {
-			//-- SPI---
-				while(nrf_gpio_pin_read (23)){
-					power_manage();
-				}//!DRDY	
-				
+				//-- SPI---
+			
+				nrf_gpio_pin_set(21);						// START set high			
+				nrf_delay_ms(1);	
+						
 				spi_tx_buff_ptr = adc_data;
 				// Reset rx buffer and transfer done flag
-				memset(m_rx_buf, 0, m_length_conv);
-				spi_xfer_done = false;				
-				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_conv, m_rx_buf, m_length_conv));
-				while (!spi_xfer_done)
-				{
-            __WFE();
+				memset(m_rx_buf, 0, length_rx_buf);
+				spi_xfer_done = false;
+			
+				while(nrf_gpio_pin_read (23)){
+					power_manage();
+				}//!DRDY read_data_cont	
+				if(!nrf_gpio_pin_read (23)){
+					//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
+					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_conv, m_rx_buf, m_length_conv));
+					while (!spi_xfer_done)
+					{
+						__WFE();
+					}	
+					LEDS_INVERT(BSP_LED_1_MASK);
 				}
+				else{
+					
+				}
+				nrf_gpio_pin_clear(21);						// START set low
+				nrf_delay_ms(1);
+
+				
+				if ((cntr%100) == 0 || cntr == 0){
+					ble_nus_string_send(&m_nus, str4, sizeof(str4));
+					ble_nus_string_send(&m_nus, str2, sizeof(str2));
+					ble_nus_string_send(&m_nus, temp_buf, 18);
+					ble_nus_string_send(&m_nus, str3, sizeof(str3));
+					ble_nus_string_send(&m_nus, temp_buf1, 18);	
+					ble_nus_string_send(&m_nus, str1, sizeof(str1));
+					ble_nus_string_send(&m_nus, temp_buf2, 3);
+					ble_nus_string_send(&m_nus, str4, sizeof(str4));	
+				}
+				
+#ifdef DEBUG				
+				if ((cntr%10) == 0 || cntr == 0){
+					//ble_nus_string_send(&m_nus, temp_buf, 18);
+					//ble_nus_string_send(&m_nus, temp_buf1, 18);								
+					spi_tx_buff_ptr = adc_setup_TC;
+					m_length_conv = sizeof(adc_setup_TC);
+				}
+				else if((cntr%15) == 0){
+					spi_tx_buff_ptr = read_reg;
+					m_length_conv = sizeof(read_reg);	//Read register
+				}
+				else{
+					spi_tx_buff_ptr = adc_data;
+					m_length_conv = sizeof(adc_data);
+				}
+																			
+				if ((cntr%15) == 0){
+					hexdec_char( (uint8_t) m_rx_buf[2] );
+					temp_buf1[0] = Rx_bufc[0];
+					temp_buf1[1] = Rx_bufc[1];
+					temp_buf1[2] = Rx_bufc[2];
+					hexdec_char( (uint8_t) m_rx_buf[3] );				// Fills up Rx_bufc
+					temp_buf1[3] = Rx_bufc[0];
+					temp_buf1[4] = Rx_bufc[1];
+					temp_buf1[5] = Rx_bufc[2];
+					hexdec_char( (uint8_t) m_rx_buf[4] );				// Fills up Rx_bufc
+					temp_buf1[6] = Rx_bufc[0];
+					temp_buf1[7] = Rx_bufc[1];
+					temp_buf1[8] = Rx_bufc[2];
+					hexdec_char( (uint8_t) m_rx_buf[5] );				// Fills up Rx_bufc		
+					temp_buf1[9]  = Rx_bufc[0];
+					temp_buf1[10] = Rx_bufc[1];
+					temp_buf1[11] = Rx_bufc[2];	
+					hexdec_char( (uint8_t) m_rx_buf[6] );				// Fills up Rx_bufc
+					temp_buf1[12] = Rx_bufc[0];
+					temp_buf1[13] = Rx_bufc[1];
+					temp_buf1[14] = Rx_bufc[2];
+					hexdec_char( (uint8_t) m_rx_buf[7] );				// Fills up Rx_bufc
+					temp_buf1[15] = Rx_bufc[0];
+					temp_buf1[16] = Rx_bufc[1];
+					temp_buf1[17] = Rx_bufc[2];
+					ble_nus_string_send(&m_nus, temp_buf1, 18);
+				}
+#endif
+				
+				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, test, length_test, m_rx_buf, length_test));
+				//while (!spi_xfer_done)
+				//{
+            //__WFE();
+				//}
 					//ble_nus_string_send(&m_nus, m_rx_buf, 6);  //Rx_buf
-				ble_nus_string_send(&m_nus, Rx_buf, 10);
+				ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler				
 				LEDS_INVERT(BSP_LED_0_MASK);
 				nrf_delay_ms(500);
+				cntr++;
 			}					           
 }
 

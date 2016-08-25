@@ -21,10 +21,12 @@
 #define LED_1          0			//07252016
 //#define LED_2          22
 #define LED_2          1			//07252016
-#define LED_3          23
+//#define LED_3          23
+#define LED_3          3			//08162016
 
-#define LED_4          24
-#define LED_STOP       24
+
+#define LED_4          2
+#define LED_STOP       2
 
 #define LEDS_LIST { LED_1, LED_2, LED_3, LED_4 }
 
@@ -33,8 +35,8 @@
 #define BSP_LED_2      LED_3
 #define BSP_LED_3      LED_4
 
-#define BSP_LED_0_MASK (1<<BSP_LED_0)
-#define BSP_LED_1_MASK (1<<BSP_LED_1)
+#define BSP_LED_0_MASK (1<<BSP_LED_0)	//LED_1
+#define BSP_LED_1_MASK (1<<BSP_LED_1) //LED_2
 #define BSP_LED_2_MASK (1<<BSP_LED_2)
 #define BSP_LED_3_MASK (1<<BSP_LED_3)
 
@@ -44,12 +46,19 @@
 
 #define BUTTONS_NUMBER 4
 
-#define BUTTON_START   17
-#define BUTTON_1       17
-#define BUTTON_2       18
-#define BUTTON_3       19
-#define BUTTON_4       20
-#define BUTTON_STOP    20
+//#define BUTTON_START   17
+//#define BUTTON_1       17
+//#define BUTTON_2       18
+//#define BUTTON_3       19
+//#define BUTTON_4       20
+//#define BUTTON_STOP    20
+#define BUTTON_START   4
+#define BUTTON_1       4
+#define BUTTON_2       30									
+#define BUTTON_3       6
+#define BUTTON_4       7
+#define BUTTON_STOP    7
+
 #define BUTTON_PULL    NRF_GPIO_PIN_PULLUP
 
 #define BUTTONS_LIST { BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4 }
@@ -66,6 +75,7 @@
 
 #define BUTTONS_MASK   0x001E0000
 
+//UART
 //#define RX_PIN_NUMBER  11
 #define RX_PIN_NUMBER  5
 //#define TX_PIN_NUMBER  9
@@ -142,7 +152,8 @@
 #define ARDUINO_A1_PIN              2     // Analog channel 1
 #define ARDUINO_A2_PIN              3     // Analog channel 2
 #define ARDUINO_A3_PIN              4     // Analog channel 3
-#define ARDUINO_A4_PIN              5     // Analog channel 4
+//#define ARDUINO_A4_PIN              5     // Analog channel 4
+#define ARDUINO_A4_PIN              29     // Analog channel 4
 #define ARDUINO_A5_PIN              6     // Analog channel 5
 
 // Low frequency clock source to be used by the SoftDevice

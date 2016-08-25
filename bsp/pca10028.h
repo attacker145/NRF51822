@@ -12,17 +12,12 @@
 #ifndef PCA10028_H
 #define PCA10028_H
 
-// LEDs definitions for PCA10028
+// LEDs definitions for CNK
 #define LEDS_NUMBER    4
-
-//#define LED_START      21
-//#define LED_1          21
-#define LED_START      0			//07252016
-#define LED_1          0			//07252016
-//#define LED_2          22
-#define LED_2          1			//07252016
-//#define LED_3          23
-#define LED_3          3			//08162016
+#define LED_START      0			
+#define LED_1          0			
+#define LED_2          1			
+#define LED_3          3
 
 
 #define LED_4          2
@@ -35,8 +30,8 @@
 #define BSP_LED_2      LED_3
 #define BSP_LED_3      LED_4
 
-#define BSP_LED_0_MASK (1<<BSP_LED_0)	//LED_1
-#define BSP_LED_1_MASK (1<<BSP_LED_1) //LED_2
+#define BSP_LED_0_MASK (1<<BSP_LED_0)
+#define BSP_LED_1_MASK (1<<BSP_LED_1)
 #define BSP_LED_2_MASK (1<<BSP_LED_2)
 #define BSP_LED_3_MASK (1<<BSP_LED_3)
 
@@ -46,12 +41,6 @@
 
 #define BUTTONS_NUMBER 4
 
-//#define BUTTON_START   17
-//#define BUTTON_1       17
-//#define BUTTON_2       18
-//#define BUTTON_3       19
-//#define BUTTON_4       20
-//#define BUTTON_STOP    20
 #define BUTTON_START   4
 #define BUTTON_1       4
 #define BUTTON_2       30									
@@ -166,4 +155,4 @@
                                  .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_20_PPM}
 #endif
 
-#endif // PCA10028_H
+#endif

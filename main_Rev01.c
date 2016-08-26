@@ -76,28 +76,31 @@ uint8_t	temp_buf[18];
 uint8_t	temp_buf1[27];
 uint8_t temp_buf2[3];
 
-//static const uint8_t adc_setup_TC[]			= {0x40,0x03, 0x01,0x02,0x40,0x71}; 	 //ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
-
-static const uint8_t adc_setup_TC[]			= {0x40,0x03, 0x01,0x02,0x30,0x71}; 
-static const uint8_t adc_data[]					= {0xff,0xff,0xff};     								//ADC conv NULL array for 3 bytes each RTD and TC values
-static const uint8_t read_reg [] 				= {0x20,0x03,0x00,0x00,0x00,0x00};
-static const uint8_t adc_sleep [] 			= {0x03};
-
-static const uint8_t ADC_WR_SETUP_EXC[]	= {0x4A,0x01,0x03,0x2F};//250uA
-//static const uint8_t ADC_WR_SETUP_EXC[]	= {0x4A,0x01,0x01,0x2F};//50uA
-static const uint8_t m_length_exc 			= sizeof(ADC_WR_SETUP_EXC);
+//static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x40,0x71}; 	 //ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
+static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x30,0x71}; 
 
 /*
 	0x13 - AN2+ , AN3-
   0x00 - Bias voltage is disabled
-  
+	0x30 - Internal reference is always on, Onboard reference selected 
+	0x00 - gain of the PGA = 1
 */
-//static const uint8_t adc_setup_RTD[]		= {0x40,0x03,0x13,0x00,0x30,0x41};      //ADC RTD config {0x40,0x03,0x13,0x00,0x40,0x40}
-static const uint8_t adc_setup_RTD[]		= {0x40,0x03,0x13,0x00,0x30,0x01};
-static const uint8_t m_length_setup_rtd = sizeof(adc_setup_RTD);
+static const uint8_t adc_conf_rtd[]		= {0x40,0x03,0x13,0x00,0x30,0x41};      //ADC RTD config {0x40,0x03,0x13,0x00,0x40,0x40}
+//static const uint8_t adc_conf_rtd[]		= {0x40,0x03,0x13,0x00,0x30,0x00};
 
-static const uint8_t m_length_setup_tc 	= sizeof(adc_setup_TC);        	/**< Transfer length. */
-static uint8_t m_length_conv 						= sizeof(adc_data);        			/**< Transfer length. */
+static const uint8_t read_adc[]					= {0xff,0xff,0xff};     								//ADC conv NULL array for 3 bytes each RTD and TC values
+static const uint8_t read_reg [] 				= {0x20,0x03,0x00,0x00,0x00,0x00};
+static const uint8_t adc_sleep [] 			= {0x03};
+
+static const uint8_t adc_idac_config[]	= {0x4A,0x01,0x03,0x2F};//250uA
+//static const uint8_t ADC_WR_SETUP_EXC[]	= {0x4A,0x01,0x01,0x2F};//50uA
+static const uint8_t m_length_exc 			= sizeof(adc_idac_config);
+
+
+static const uint8_t m_length_setup_rtd = sizeof(adc_conf_rtd);
+
+static const uint8_t m_length_setup_tc 	= sizeof(adc_conf_tc);        	/**< Transfer length. */
+static uint8_t m_length_conv 						= sizeof(read_adc);        			/**< Transfer length. */
 static const uint8_t length_read_reg 		= sizeof(read_reg);        			/**< Transfer length. */
 static const uint8_t length_rx_buf 			= sizeof(m_rx_buf);
 static const uint8_t m_length_sleep 		= sizeof(adc_sleep);
@@ -786,8 +789,8 @@ int main(void)
 		uint8_t str6[] = "RTD Data:";
 		uint8_t str7[] = "The difference:";
 		uint8_t diff[]				= {0x00,0x00,0x00};		// Difference array
-		uint8_t TC_data[] 	 	= {0x00,0x00,0x00};
-		uint8_t RTD_data[]  	= {0x00,0x00,0x00};
+		uint8_t read_tc[] 	 	= {0x00,0x00,0x00};
+		uint8_t read_rtd[]  	= {0x00,0x00,0x00};
 		uint16_t NmbrOfChar = 10;
 		uint8_t *Rx_bufPtr = &Rx_buf[0];
 //		uint8_t str5[] = "!DRDY, RDATAC sent";
@@ -831,7 +834,7 @@ int main(void)
 		//Initialize TC ADC******************************************************************************************
 		//while(1){
 		nrf_delay_ms(1);	
-		spi_tx_buff_ptr = adc_setup_TC;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+		spi_tx_buff_ptr = adc_conf_tc;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
 		// Reset rx buffer and transfer done flag
     memset(m_rx_buf, 0, length_rx_buf);
 		//memset(m_rx_buf, 0, 13);
@@ -853,7 +856,7 @@ int main(void)
 		// Configuration data TC
 		cntr = 0;
 		for (cntr_ext = 0; cntr_ext < 6; cntr_ext++){
-			hexdec_char( (uint8_t) adc_setup_TC[cntr_ext] );
+			hexdec_char( (uint8_t) adc_conf_tc[cntr_ext] );
 			for (cntr_int = 0; cntr_int < 3; cntr_int++){
 					temp_buf[cntr] = Rx_bufc[cntr_int];
 					cntr++;
@@ -903,7 +906,7 @@ int main(void)
 		nrf_delay_ms(500);
 
 		//Cold junction	configuration
-    spi_tx_buff_ptr = ADC_WR_SETUP_EXC;		// Initialize pointer to read register buffer	
+    spi_tx_buff_ptr = adc_idac_config;		// Initialize pointer to read register buffer	
 		// Reset rx buffer and transfer done flag
     memset(m_rx_buf, 0, m_length_exc);
 		//memset(m_rx_buf, 0, 13);
@@ -939,7 +942,7 @@ int main(void)
 //#ifdef TC					
 				if ((cntr % 2) == 0){	//Initialize TC ADC
 					nrf_delay_ms(10);	
-					spi_tx_buff_ptr = adc_setup_TC;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+					spi_tx_buff_ptr = adc_conf_tc;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
 					// Reset rx buffer and transfer done flag
 					memset(m_rx_buf, 0, length_rx_buf);
 					//memset(m_rx_buf, 0, 13);
@@ -953,7 +956,7 @@ int main(void)
 					}			
 					nrf_delay_ms(200);													
 					//Read TC data	Read TC data	Read TC data	Read TC data		
-					spi_tx_buff_ptr = adc_data;
+					spi_tx_buff_ptr = read_adc;
 					// Reset rx buffer and transfer done flag
 					memset(m_rx_buf, 0, length_rx_buf);
 					//memset(m_rx_buf, 0, 13);
@@ -973,28 +976,28 @@ int main(void)
 					else{
 						
 					}
-					TC_data[0] = m_rx_buf[0]; //MSB
-					TC_data[1] = m_rx_buf[1];
-					TC_data[2] = m_rx_buf[2];				
-					ble_nus_string_send(&m_nus, str5, sizeof(str5));
-										
+					read_tc[0] = m_rx_buf[0]; //MSB
+					read_tc[1] = m_rx_buf[1];
+					read_tc[2] = m_rx_buf[2];				
+															
 					NmbrOfChar = 10;
 					Rx_bufPtr = &Rx_buf[0];
-					
-					for (cntr_ext = 0; cntr_ext < 5; cntr_ext++){
-						if (Rx_buf[cntr_ext] == '0'){
-							NmbrOfChar = NmbrOfChar - 1;
-							Rx_bufPtr = &Rx_buf[cntr_ext];
-						}							
+					//Remove front zeros
+					cntr_ext = 0;
+					while (Rx_buf[cntr_ext] == '0'){ //TC
+						NmbrOfChar = NmbrOfChar - 1;
+						Rx_bufPtr = &Rx_buf[cntr_ext];
+					  cntr_ext++;
 					}
-								
+					ble_nus_string_send(&m_nus, str4, sizeof(str4));//*******************************
+					ble_nus_string_send(&m_nus, str5, sizeof(str5));			
 					ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
 										
 					//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data
 			}			
 			else{	//Initialize RTD ADC****************************************************					
 				nrf_delay_ms(10);	
-				spi_tx_buff_ptr = adc_setup_RTD;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+				spi_tx_buff_ptr = adc_conf_rtd;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
 				// Reset rx buffer and transfer done flag
 				memset(m_rx_buf, 0, length_rx_buf);
 				//memset(m_rx_buf, 0, 13);
@@ -1008,7 +1011,7 @@ int main(void)
 				}			
 				nrf_delay_ms(200);									
 				//Read RTD data		
-				spi_tx_buff_ptr = adc_data;
+				spi_tx_buff_ptr = read_adc;
 				// Reset rx buffer and transfer done flag
 				memset(m_rx_buf, 0, length_rx_buf);
 				//memset(m_rx_buf, 0, 13);
@@ -1028,26 +1031,26 @@ int main(void)
 				else{
 					
 				}																
-				RTD_data[0] = m_rx_buf[0];
-				RTD_data[1] = m_rx_buf[1];
-				RTD_data[2] = m_rx_buf[2];
-				ble_nus_string_send(&m_nus, str6, sizeof(str6));
+				read_rtd[0] = m_rx_buf[0];
+				read_rtd[1] = m_rx_buf[1];
+				read_rtd[2] = m_rx_buf[2];
+				
 				NmbrOfChar = 10;
 				Rx_bufPtr = &Rx_buf[0];
-				
-				for (cntr_ext = 0; cntr_ext < 5; cntr_ext++){
-						if (Rx_buf[cntr_ext] == '0'){
-							NmbrOfChar = NmbrOfChar - 1;
-							Rx_bufPtr = &Rx_buf[cntr_ext];
-						}							
-					}
-				
+				//Remove front zeros
+				cntr_ext = 0;
+				while (Rx_buf[cntr_ext] == '0'){ //RTD
+						NmbrOfChar = NmbrOfChar - 1;
+						Rx_bufPtr = &Rx_buf[cntr_ext];
+					  cntr_ext++;
+					}	
+					ble_nus_string_send(&m_nus, str6, sizeof(str6));
 					ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
 				//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
 
-				diff[0] = TC_data[0] - RTD_data[0]; // MSB
-				diff[1] = TC_data[1] - RTD_data[1];
-				diff[2] = TC_data[2] - RTD_data[2];	// LSB
+				diff[0] = read_tc[0] - read_rtd[0]; // MSB
+				diff[1] = read_tc[1] - read_rtd[1];
+				diff[2] = read_tc[2] - read_rtd[2];	// LSB
 												
 				//ADC result is 3 byte long. 
 				difference = (uint32_t) diff[0];						// Save byte 0 of the ADC result in uint32_t Result
@@ -1056,19 +1059,28 @@ int main(void)
 				difference = (difference << 8);
 				difference = (difference + (uint32_t)diff[2]);	// Save byte 2 of the ADC result in uint32_t Result
 				hexdec_long( difference );											// Convert Result into character string. Fills up Rx_buf
-								
+				
+				
+
+					
 				hexdec_long( difference );
-				ble_nus_string_send(&m_nus, str7, sizeof(str7));
+				
 				NmbrOfChar = 10;
 				Rx_bufPtr = &Rx_buf[0];
-				
-				for (cntr_ext = 0; cntr_ext < 5; cntr_ext++){
-						if (Rx_buf[cntr_ext] == '0'){
-							NmbrOfChar = NmbrOfChar - 1;
-							Rx_bufPtr = &Rx_buf[cntr_ext];
-						}							
+				cntr_ext = 0;
+				while (Rx_buf[cntr_ext] == '0'){
+						NmbrOfChar = NmbrOfChar - 1;
+						Rx_bufPtr = &Rx_buf[cntr_ext];
+					  cntr_ext++;
 					}
 				
+//				for (cntr_ext = 0; cntr_ext < 5; cntr_ext++){
+//						if (Rx_buf[cntr_ext] == '0'){
+//							NmbrOfChar = NmbrOfChar - 1;
+//							Rx_bufPtr = &Rx_buf[cntr_ext];
+//						}							
+//					}
+					ble_nus_string_send(&m_nus, str7, sizeof(str7));
 					ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
 				//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
 				LEDS_INVERT(BSP_LED_1_MASK);

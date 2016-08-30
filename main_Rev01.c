@@ -76,8 +76,9 @@ uint8_t	temp_buf[18];
 uint8_t	temp_buf1[27];
 uint8_t temp_buf2[3];
 
-//static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x40,0x71}; 	 //ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
-static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x30,0x71}; 
+static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x40,0x71}; 	 //ADC TC config with VBIAS{0x40,0x03,0x01,0x02,0x40,0x70}, w/o VBIAS {0x40,0x03,0x01,0x00,0x40,0x70} 
+//static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x30,0x71}; 
+//static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x40,0x61};
 
 /*
 	0x13 - AN2+ , AN3-
@@ -85,7 +86,7 @@ static const uint8_t adc_conf_tc[]			= {0x40,0x03, 0x01,0x02,0x30,0x71};
 	0x30 - Internal reference is always on, Onboard reference selected 
 	0x00 - gain of the PGA = 1
 */
-static const uint8_t adc_conf_rtd[]		= {0x40,0x03,0x13,0x00,0x30,0x41};      //ADC RTD config {0x40,0x03,0x13,0x00,0x40,0x40}
+static const uint8_t adc_conf_rtd[]		= {0x40,0x03,0x13,0x00,0x40,0x41};      //ADC RTD config {0x40,0x03,0x13,0x00,0x40,0x40}
 //static const uint8_t adc_conf_rtd[]		= {0x40,0x03,0x13,0x00,0x30,0x00};
 
 static const uint8_t read_adc[]					= {0xff,0xff,0xff};     								//ADC conv NULL array for 3 bytes each RTD and TC values
@@ -93,8 +94,11 @@ static const uint8_t read_reg [] 				= {0x20,0x03,0x00,0x00,0x00,0x00};
 static const uint8_t adc_sleep [] 			= {0x03};
 
 static const uint8_t adc_idac_config[]	= {0x4A,0x01,0x03,0x2F};//250uA
+//static const uint8_t adc_idac_config[]	= {0x4A,0x01,0x03,0x20};//250uA
 //static const uint8_t ADC_WR_SETUP_EXC[]	= {0x4A,0x01,0x01,0x2F};//50uA
 static const uint8_t m_length_exc 			= sizeof(adc_idac_config);
+
+
 
 
 static const uint8_t m_length_setup_rtd = sizeof(adc_conf_rtd);
@@ -112,7 +116,8 @@ uint8_t tensc;
 uint8_t onesc;
 uint8_t hundredsc;
 uint8_t const * spi_tx_buff_ptr;
-uint8_t idle;
+uint8_t connected;
+uint8_t adv;
 
 /*
  * Convert uint32_t hex value to an uint8_t array.
@@ -241,6 +246,7 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 	  Result = (Result + (uint32_t)m_rx_buf[1]);	// Save byte 1 of the ADC result in uint32_t Result
 	  Result = (Result << 8);
 	  Result = (Result + (uint32_t)m_rx_buf[2]);	// Save byte 2 of the ADC result in uint32_t Result
+	  Result = Result * 2;
 		hexdec_long( Result );											// Convert Result into character string. Fills up Rx_buf
 //#define UART_SPI
 #ifdef UART_SPI	
@@ -488,9 +494,11 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
             err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
+						//adv = 1;
             APP_ERROR_CHECK(err_code);
             break;
         case BLE_ADV_EVT_IDLE:
+						//adv = 0;
             sleep_mode_enter();
             break;
         default:
@@ -513,14 +521,14 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-						idle = 0;
+						connected = 1;
             break;
             
         case BLE_GAP_EVT_DISCONNECTED:
             err_code = bsp_indication_set(BSP_INDICATE_IDLE);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
-						idle = 1;
+						connected = 0;
             break;
 
         case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
@@ -770,33 +778,170 @@ static void power_manage(void)
 }
 
 
+void DisplayConfigTC (void){
+			uint8_t cntr = 0;		
+			uint8_t cntr_int = 0;
+			uint8_t cntr_ext = 0;
+			//uint8_t str1[] = "Number Bytes sent";	
+			uint8_t str2[] = "TC applied config:";
+			uint8_t str3[] = "TC config verified";
+			uint8_t str4[] = "*******************";																		
+			// Configuration data TC
+			cntr = 0;
+			for (cntr_ext = 0; cntr_ext < 6; cntr_ext++){
+				hexdec_char( (uint8_t) adc_conf_tc[cntr_ext] );
+				for (cntr_int = 0; cntr_int < 3; cntr_int++){
+						temp_buf[cntr] = Rx_bufc[cntr_int];
+						cntr++;
+				}						
+			}
+			//Read Internal Registers		*********************************************************************		
+			nrf_delay_ms(1);					
+			//Read Internal Registers ******** Read Internal Registers ********Read Internal Registers ********
+			spi_tx_buff_ptr = read_reg;		// Initialize pointer to read register buffer	
+			// Reset rx buffer and transfer done flag
+			memset(m_rx_buf, 0, length_rx_buf);
+			//memset(m_rx_buf, 0, 13);
+			spi_xfer_done = false;	
+			// Read internal registers into m_rx_buf
+			APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
+			//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
+			while (!spi_xfer_done)
+			{
+				__WFE();
+			}				
+			//nrf_drv_spi_uninit(&spi);							
+			//Read Internal Registers: Convert binary value to decimal ********
+			cntr = 0;
+			for (cntr_ext = 0; cntr_ext < 2; cntr_ext++){
+				hexdec_char( (uint8_t) read_reg[cntr_ext] );
+				for (cntr_int = 0; cntr_int < 3; cntr_int++){
+						temp_buf1[cntr] = Rx_bufc[cntr_int];
+						cntr++;
+				}						
+			}					
+			for (cntr_ext = 0; cntr_ext < 4; cntr_ext++){
+				hexdec_char( (uint8_t) m_rx_buf[(cntr_ext + 2)] );
+				for (cntr_int = 0; cntr_int < 3; cntr_int++){
+						temp_buf1[cntr] = Rx_bufc[cntr_int];
+						cntr++;
+				}						
+			}									
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, str4, sizeof(str4));
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, str2, sizeof(str2));
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, temp_buf, 18);
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, str3, sizeof(str3));
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, temp_buf1, 18);	
+			nrf_delay_ms(200);
+			//ble_nus_string_send(&m_nus, str1, sizeof(str1));
+			//nrf_delay_ms(200);
+			//ble_nus_string_send(&m_nus, temp_buf2, 3);
+			//nrf_delay_ms(200);
+			//ble_nus_string_send(&m_nus, str4, sizeof(str4));	
+			//nrf_delay_ms(200);					
+}
+
+void DisplayConfigRTD (void){
+			uint8_t cntr = 0;		
+			uint8_t cntr_int = 0;
+			uint8_t cntr_ext = 0;
+			//uint8_t str1[] = "Number Bytes sent";	
+			uint8_t str2[] = "RTD applied config:";
+			uint8_t str3[] = "RTD config verified";
+			uint8_t str4[] = "*******************";						
+			//if ((cntr%10) == 0 || cntr == 0){												
+			// Configuration data TC
+			cntr = 0;
+			for (cntr_ext = 0; cntr_ext < 6; cntr_ext++){
+				hexdec_char( (uint8_t) adc_conf_rtd[cntr_ext] );
+				for (cntr_int = 0; cntr_int < 3; cntr_int++){
+						temp_buf[cntr] = Rx_bufc[cntr_int];
+						cntr++;
+				}						
+			}
+			//Read Internal Registers		*********************************************************************		
+			nrf_delay_ms(1);					
+			//Read Internal Registers ******** Read Internal Registers ********Read Internal Registers ********
+			spi_tx_buff_ptr = read_reg;		// Initialize pointer to read register buffer	
+			// Reset rx buffer and transfer done flag
+			memset(m_rx_buf, 0, length_rx_buf);
+			//memset(m_rx_buf, 0, 13);
+			spi_xfer_done = false;	
+			// Read internal registers into m_rx_buf
+			APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
+			//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
+			while (!spi_xfer_done)
+			{
+				__WFE();
+			}				
+			//nrf_drv_spi_uninit(&spi);							
+			//Read Internal Registers: Convert binary value to decimal ********
+			cntr = 0;
+			for (cntr_ext = 0; cntr_ext < 2; cntr_ext++){
+				hexdec_char( (uint8_t) read_reg[cntr_ext] );
+				for (cntr_int = 0; cntr_int < 3; cntr_int++){
+						temp_buf1[cntr] = Rx_bufc[cntr_int];
+						cntr++;
+				}						
+			}					
+			for (cntr_ext = 0; cntr_ext < 4; cntr_ext++){
+				hexdec_char( (uint8_t) m_rx_buf[(cntr_ext + 2)] );
+				for (cntr_int = 0; cntr_int < 3; cntr_int++){
+						temp_buf1[cntr] = Rx_bufc[cntr_int];
+						cntr++;
+				}						
+			}									
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, str4, sizeof(str4));
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, str2, sizeof(str2));
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, temp_buf, 18);
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, str3, sizeof(str3));
+			nrf_delay_ms(200);
+			ble_nus_string_send(&m_nus, temp_buf1, 18);	
+			nrf_delay_ms(200);
+			//ble_nus_string_send(&m_nus, str1, sizeof(str1));
+			//nrf_delay_ms(200);
+			//ble_nus_string_send(&m_nus, temp_buf2, 3);
+			//nrf_delay_ms(200);
+			//ble_nus_string_send(&m_nus, str4, sizeof(str4));	
+			//nrf_delay_ms(200);					
+				//}
+}
 /**@brief Application main function.
  */
 //unsigned char *uart;
 
 int main(void)
 {
-    uint32_t err_code;
+		uint32_t err_code;
 		uint8_t cntr = 0;
 		uint32_t difference = 0;
-		uint8_t cntr_int = 0;
+		//uint8_t cntr_int = 0;
 		uint8_t cntr_ext = 0;
-		uint8_t str1[] = "Number Bytes sent";	
-		uint8_t str2[] = "Config Data:";
-		uint8_t str3[] = "Regist Data:";
+	  connected = 1;
+		//uint8_t str1[] = "Number Bytes sent";	
+		//uint8_t str2[] = "TC Config Data:";
+		//uint8_t str3[] = "TC Regist Data:";
 		uint8_t str4[] = "*******************";
 		uint8_t str5[] = "TC Data:";
 		uint8_t str6[] = "RTD Data:";
-		uint8_t str7[] = "The difference:";
+		uint8_t str7[] = "Result:";
 		uint8_t diff[]				= {0x00,0x00,0x00};		// Difference array
 		uint8_t read_tc[] 	 	= {0x00,0x00,0x00};
 		uint8_t read_rtd[]  	= {0x00,0x00,0x00};
 		uint16_t NmbrOfChar = 10;
 		uint8_t *Rx_bufPtr = &Rx_buf[0];
-//		uint8_t str5[] = "!DRDY, RDATAC sent";
+//  uint8_t str5[] = "!DRDY, RDATAC sent";		
+    bool 		erase_bonds;	
 		
-    bool 		erase_bonds;
-								
 		nrf_gpio_cfg_output(21);				// START
 		nrf_gpio_pin_set(21);						// START set high
 		nrf_gpio_cfg_output(22);				// ADC RESET
@@ -817,6 +962,11 @@ int main(void)
     uart_init();
     
     buttons_leds_init(&erase_bonds);
+		ble_stack_init();
+    gap_params_init();
+    services_init();
+    advertising_init();
+    conn_params_init();
 		
 		//SPI-------------------------------------------------------------------------------
 	  /*
@@ -829,103 +979,20 @@ int main(void)
     spi_config.ss_pin = SPI_CS_PIN;				//CS is pin 19
     APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler)); //spi_event_handler_init
 		//APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler_init));
-		
-		
-		//Initialize TC ADC******************************************************************************************
-		//while(1){
-		nrf_delay_ms(1);	
-		spi_tx_buff_ptr = adc_conf_tc;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
-		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, length_rx_buf);
-		//memset(m_rx_buf, 0, 13);
-    spi_xfer_done = false;
-		//Configure ADC		
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-		while (!spi_xfer_done)
-    {
-			__WFE();
-    }		
-		//nrf_drv_spi_uninit(&spi);		
-		hexdec_char( (uint8_t) m_length_setup_tc );		// Number of bytes sent
-		temp_buf2[0] = Rx_bufc[0];										// Result char 0
-		temp_buf2[1] = Rx_bufc[1];										// Result char 1
-		temp_buf2[2] = Rx_bufc[2];										// Result char 2
-		//NRF_LOG_PRINTF("Bytes sent: %s\r\n", Rx_bufc);
-				
-		// Configuration data TC
-		cntr = 0;
-		for (cntr_ext = 0; cntr_ext < 6; cntr_ext++){
-			hexdec_char( (uint8_t) adc_conf_tc[cntr_ext] );
-			for (cntr_int = 0; cntr_int < 3; cntr_int++){
-					temp_buf[cntr] = Rx_bufc[cntr_int];
-					cntr++;
-			}
-			
-		}
-		
-		//NRF_LOG_PRINTF("Send Reg: %s\r\n", temp_buf);
-		
-		//Read Internal Registers		*********************************************************************		
-		nrf_delay_ms(1);					
-		//Read Internal Registers ******** Read Internal Registers ********Read Internal Registers ********
-		spi_tx_buff_ptr = read_reg;		// Initialize pointer to read register buffer	
-		// Reset rx buffer and transfer done flag
-    memset(m_rx_buf, 0, length_rx_buf);
-		//memset(m_rx_buf, 0, 13);
-    spi_xfer_done = false;	
-		// Read internal registers into m_rx_buf
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
-		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
-		while (!spi_xfer_done)
-    {
-			__WFE();
-    }				
-		//nrf_drv_spi_uninit(&spi);
-				
-		//Read Internal Registers: Convert binary value to decimal ********
-		cntr = 0;
-		for (cntr_ext = 0; cntr_ext < 2; cntr_ext++){
-			hexdec_char( (uint8_t) read_reg[cntr_ext] );
-			for (cntr_int = 0; cntr_int < 3; cntr_int++){
-					temp_buf1[cntr] = Rx_bufc[cntr_int];
-					cntr++;
-			}
-			
-		}
-		
-		for (cntr_ext = 0; cntr_ext < 4; cntr_ext++){
-			hexdec_char( (uint8_t) m_rx_buf[(cntr_ext + 2)] );
-			for (cntr_int = 0; cntr_int < 3; cntr_int++){
-					temp_buf1[cntr] = Rx_bufc[cntr_int];
-					cntr++;
-			}
-			
-		}		
-		//NRF_LOG_PRINTF("Read Reg: %s\r\n", temp_buf1);				
-		nrf_delay_ms(500);
-
-		//Cold junction	configuration
-    spi_tx_buff_ptr = adc_idac_config;		// Initialize pointer to read register buffer	
+							
+		spi_tx_buff_ptr = adc_idac_config;		// Initialize pointer to the exitation config	
 		// Reset rx buffer and transfer done flag
     memset(m_rx_buf, 0, m_length_exc);
 		//memset(m_rx_buf, 0, 13);
     spi_xfer_done = false;	
 		// Read internal registers into m_rx_buf
-		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, length_read_reg, m_rx_buf, length_read_reg));
+		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_exc, m_rx_buf, m_length_exc));
 		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
 		while (!spi_xfer_done)
     {
 			__WFE();
     }
-		nrf_delay_ms(500);
-						
-		ble_stack_init();
-    gap_params_init();
-    services_init();
-    advertising_init();
-    conn_params_init();
-		
+		nrf_delay_ms(10);
 							
     printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
@@ -934,278 +1001,185 @@ int main(void)
 		cntr = 0;
 		// The main loop.
     for (;;)
-    {
-								
-			if(!idle){
-				nrf_gpio_pin_set(21);						// START set high			
-				nrf_delay_ms(1);
-//#ifdef TC					
-				if ((cntr % 2) == 0){	//Initialize TC ADC
+    {								
+				if(connected){
+					nrf_gpio_pin_set(21);						// START set high			
+					nrf_delay_ms(1);					
+					if ((cntr % 2) == 0){	//Initialize TC ADC
+						nrf_delay_ms(10);	
+						spi_tx_buff_ptr = adc_conf_tc;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+						// Reset rx buffer and transfer done flag
+						memset(m_rx_buf, 0, length_rx_buf);
+						//memset(m_rx_buf, 0, 13);
+						spi_xfer_done = false;
+						//Configure TC ADC		
+						APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+						//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+						while (!spi_xfer_done)
+						{
+							__WFE();					//Configuring TC ADC
+						}								
+						//nrf_delay_ms(200);	
+						if ((cntr%10) == 0 || cntr == 0){
+								DisplayConfigTC();							// Print configuration
+						}							
+						//Read TC data	Read TC data	Read TC data	Read TC data		
+						spi_tx_buff_ptr = read_adc;
+						// Reset rx buffer and transfer done flag
+						memset(m_rx_buf, 0, length_rx_buf);
+						//memset(m_rx_buf, 0, 13);
+						spi_xfer_done = false;
+					
+						while(nrf_gpio_pin_read (23)){}//!DRDY read_data_cont
+						//power_manage();											
+						APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_conv, m_rx_buf, m_length_conv)); // Read TC data
+						while (!spi_xfer_done)
+						{
+							__WFE();
+						}						
+					
+						read_tc[0] = m_rx_buf[0]; //MSB
+						read_tc[1] = m_rx_buf[1];
+						read_tc[2] = m_rx_buf[2];				
+																
+						NmbrOfChar = 10;
+						Rx_bufPtr = &Rx_buf[0];
+						//Remove front zeros
+						cntr_ext = 0;
+						while (Rx_buf[cntr_ext] == '0'){ //TC
+							NmbrOfChar = NmbrOfChar - 1;
+							Rx_bufPtr = &Rx_buf[cntr_ext];
+							cntr_ext++;
+						}
+						ble_nus_string_send(&m_nus, str4, sizeof(str4));//*******************************
+						ble_nus_string_send(&m_nus, str5, sizeof(str5));//"TC Data:"			
+						//ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
+											
+						ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data
+				}			
+				else{	//Initialize RTD ADC****************************************************					
 					nrf_delay_ms(10);	
-					spi_tx_buff_ptr = adc_conf_tc;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
+					spi_tx_buff_ptr = adc_conf_rtd;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
 					// Reset rx buffer and transfer done flag
 					memset(m_rx_buf, 0, length_rx_buf);
 					//memset(m_rx_buf, 0, 13);
 					spi_xfer_done = false;
 					//Configure TC ADC		
-					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
+					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_rtd));
 					//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
 					while (!spi_xfer_done)
 					{
-						__WFE();					//Configuring TC ADC
+						__WFE();					//Configuring RTD ADC
 					}			
-					nrf_delay_ms(200);													
-					//Read TC data	Read TC data	Read TC data	Read TC data		
+					//nrf_delay_ms(200);	
+
+					if ((cntr%11) == 0 || cntr == 0){
+						DisplayConfigRTD();							// Print configuration RTD
+					}
+					
+					//Read RTD data		
 					spi_tx_buff_ptr = read_adc;
 					// Reset rx buffer and transfer done flag
 					memset(m_rx_buf, 0, length_rx_buf);
 					//memset(m_rx_buf, 0, 13);
 					spi_xfer_done = false;
 				
-					while(nrf_gpio_pin_read (23)){
-						power_manage();
-					}//!DRDY read_data_cont	
-					if(!nrf_gpio_pin_read (23)){
-						//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
-						APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_conv, m_rx_buf, m_length_conv)); // Read TC data
-						while (!spi_xfer_done)
-						{
-							__WFE();
-						}						
-					}
-					else{
-						
-					}
-					read_tc[0] = m_rx_buf[0]; //MSB
-					read_tc[1] = m_rx_buf[1];
-					read_tc[2] = m_rx_buf[2];				
-															
-					NmbrOfChar = 10;
-					Rx_bufPtr = &Rx_buf[0];
-					//Remove front zeros
-					cntr_ext = 0;
-					while (Rx_buf[cntr_ext] == '0'){ //TC
-						NmbrOfChar = NmbrOfChar - 1;
-						Rx_bufPtr = &Rx_buf[cntr_ext];
-					  cntr_ext++;
-					}
-					ble_nus_string_send(&m_nus, str4, sizeof(str4));//*******************************
-					ble_nus_string_send(&m_nus, str5, sizeof(str5));			
-					ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
-										
-					//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data
-			}			
-			else{	//Initialize RTD ADC****************************************************					
-				nrf_delay_ms(10);	
-				spi_tx_buff_ptr = adc_conf_rtd;	//Initialize pointer to ADC config: static uint8_t adc_setup_TC[]			= {0x40,0x03,0x01,0x02,0x40,0x71};			
-				// Reset rx buffer and transfer done flag
-				memset(m_rx_buf, 0, length_rx_buf);
-				//memset(m_rx_buf, 0, 13);
-				spi_xfer_done = false;
-				//Configure TC ADC		
-				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_setup_tc, m_rx_buf, m_length_setup_rtd));
-				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, adc_setup_TC, m_length_setup_tc, m_rx_buf, m_length_setup_tc));
-				while (!spi_xfer_done)
-				{
-					__WFE();					//Configuring RTD ADC
-				}			
-				nrf_delay_ms(200);									
-				//Read RTD data		
-				spi_tx_buff_ptr = read_adc;
-				// Reset rx buffer and transfer done flag
-				memset(m_rx_buf, 0, length_rx_buf);
-				//memset(m_rx_buf, 0, 13);
-				spi_xfer_done = false;
-			
-				while(nrf_gpio_pin_read (23)){
-					power_manage();
-				}//!DRDY read_data_cont	
-				if(!nrf_gpio_pin_read (23)){
-					//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, m_tx_buf, m_length, m_rx_buf, m_length)); // Sends: #define TEST_STRING "Nordic"
+					while(nrf_gpio_pin_read (23)){} //!DRDY read_data_cont
+					//power_manage();					
 					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_conv, m_rx_buf, m_length_conv)); // Read TC data
 					while (!spi_xfer_done)
 					{
 						__WFE();
 					}											
-				}
-				else{
+																					
+					read_rtd[0] = m_rx_buf[0];
+					read_rtd[1] = m_rx_buf[1];
+					read_rtd[2] = m_rx_buf[2];
 					
-				}																
-				read_rtd[0] = m_rx_buf[0];
-				read_rtd[1] = m_rx_buf[1];
-				read_rtd[2] = m_rx_buf[2];
-				
-				NmbrOfChar = 10;
-				Rx_bufPtr = &Rx_buf[0];
-				//Remove front zeros
-				cntr_ext = 0;
-				while (Rx_buf[cntr_ext] == '0'){ //RTD
+					NmbrOfChar = 10;
+					Rx_bufPtr = &Rx_buf[0];
+					//Remove front zeros
+					cntr_ext = 0;
+					while (Rx_buf[cntr_ext] == '0'){ //RTD
 						NmbrOfChar = NmbrOfChar - 1;
 						Rx_bufPtr = &Rx_buf[cntr_ext];
-					  cntr_ext++;
+						cntr_ext++;
 					}	
 					ble_nus_string_send(&m_nus, str6, sizeof(str6));
-					ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
-				//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
+					//ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
+					ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
 
-				diff[0] = read_tc[0] - read_rtd[0]; // MSB
-				diff[1] = read_tc[1] - read_rtd[1];
-				diff[2] = read_tc[2] - read_rtd[2];	// LSB
-												
-				//ADC result is 3 byte long. 
-				difference = (uint32_t) diff[0];						// Save byte 0 of the ADC result in uint32_t Result
-				difference = (difference << 8);
-				difference = (difference + (uint32_t)diff[1]);	// Save byte 1 of the ADC result in uint32_t Result
-				difference = (difference << 8);
-				difference = (difference + (uint32_t)diff[2]);	// Save byte 2 of the ADC result in uint32_t Result
-				hexdec_long( difference );											// Convert Result into character string. Fills up Rx_buf
-				
-				
-
-					
-				hexdec_long( difference );
-				
-				NmbrOfChar = 10;
-				Rx_bufPtr = &Rx_buf[0];
-				cntr_ext = 0;
-				while (Rx_buf[cntr_ext] == '0'){
+					diff[0] = read_tc[0] + read_rtd[0]; // MSB
+					diff[1] = read_tc[1] + read_rtd[1];
+					diff[2] = read_tc[2] + read_rtd[2];	// LSB
+													
+					//ADC result is 3 byte long. 
+					difference = (uint32_t) diff[0];						// Save byte 0 of the ADC result in uint32_t Result
+					difference = (difference << 8);
+					difference = (difference + (uint32_t)diff[1]);	// Save byte 1 of the ADC result in uint32_t Result
+					difference = (difference << 8);
+					difference = (difference + (uint32_t)diff[2]);	// Save byte 2 of the ADC result in uint32_t Result
+					hexdec_long( difference );											// Convert Result into character string. Fills up Rx_buf																									
+					NmbrOfChar = 10;
+					Rx_bufPtr = &Rx_buf[0];
+					cntr_ext = 0;
+					while (Rx_buf[cntr_ext] == '0'){
 						NmbrOfChar = NmbrOfChar - 1;
 						Rx_bufPtr = &Rx_buf[cntr_ext];
-					  cntr_ext++;
+						cntr_ext++;
 					}
-				
-//				for (cntr_ext = 0; cntr_ext < 5; cntr_ext++){
-//						if (Rx_buf[cntr_ext] == '0'){
-//							NmbrOfChar = NmbrOfChar - 1;
-//							Rx_bufPtr = &Rx_buf[cntr_ext];
-//						}							
-//					}
+					
 					ble_nus_string_send(&m_nus, str7, sizeof(str7));
 					ble_nus_string_send(&m_nus, Rx_bufPtr, NmbrOfChar);	// Rx_buf is filled up in the handler. Send TC data
-				//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
-				LEDS_INVERT(BSP_LED_1_MASK);
-				nrf_delay_ms(500);
+					//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
+					LEDS_INVERT(BSP_LED_1_MASK);
+					nrf_delay_ms(500);
 					
-			}																				
-				nrf_gpio_pin_clear(21);						// START set low
-				nrf_delay_ms(1);
-				// ADC is stopped
-			//if (cntr % 3 == 0){	
-					
-			//}	
-				
-				if ((cntr%50) == 0 || cntr == 0){
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, str4, sizeof(str4));
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, str2, sizeof(str2));
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, temp_buf, 18);
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, str3, sizeof(str3));
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, temp_buf1, 18);	
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, str1, sizeof(str1));
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, temp_buf2, 3);
-					nrf_delay_ms(200);
-					ble_nus_string_send(&m_nus, str4, sizeof(str4));	
-					nrf_delay_ms(200);					
+					}																				
+					nrf_gpio_pin_clear(21);						// START set low
+					nrf_delay_ms(1);
+					// ADC is stopped
+				//if (cntr % 3 == 0){	
+						
+				//}																																			
+					if (cntr <255)
+						cntr++;
+					else
+						cntr =0;
 				}
-				
-//#ifdef DEBUG				
-//				if ((cntr%10) == 0 || cntr == 0){
-//					//ble_nus_string_send(&m_nus, temp_buf, 18);
-//					//ble_nus_string_send(&m_nus, temp_buf1, 18);								
-//					spi_tx_buff_ptr = adc_setup_TC;								// Send TC setup values over BLE
-//					m_length_conv = sizeof(adc_setup_TC);
-//				}
-//				else if((cntr%15) == 0){
-//					spi_tx_buff_ptr = read_reg;
-//					m_length_conv = sizeof(read_reg);	//Read register
-//				}
-//				else{
-//					spi_tx_buff_ptr = adc_data;
-//					m_length_conv = sizeof(adc_data);
-//				}
-//																			
-//				if ((cntr%15) == 0){
-//					hexdec_char( (uint8_t) m_rx_buf[2] );
-//					temp_buf1[0] = Rx_bufc[0];
-//					temp_buf1[1] = Rx_bufc[1];
-//					temp_buf1[2] = Rx_bufc[2];
-//					hexdec_char( (uint8_t) m_rx_buf[3] );				// Fills up Rx_bufc
-//					temp_buf1[3] = Rx_bufc[0];
-//					temp_buf1[4] = Rx_bufc[1];
-//					temp_buf1[5] = Rx_bufc[2];
-//					hexdec_char( (uint8_t) m_rx_buf[4] );				// Fills up Rx_bufc
-//					temp_buf1[6] = Rx_bufc[0];
-//					temp_buf1[7] = Rx_bufc[1];
-//					temp_buf1[8] = Rx_bufc[2];
-//					hexdec_char( (uint8_t) m_rx_buf[5] );				// Fills up Rx_bufc		
-//					temp_buf1[9]  = Rx_bufc[0];
-//					temp_buf1[10] = Rx_bufc[1];
-//					temp_buf1[11] = Rx_bufc[2];	
-//					hexdec_char( (uint8_t) m_rx_buf[6] );				// Fills up Rx_bufc
-//					temp_buf1[12] = Rx_bufc[0];
-//					temp_buf1[13] = Rx_bufc[1];
-//					temp_buf1[14] = Rx_bufc[2];
-//					hexdec_char( (uint8_t) m_rx_buf[7] );				// Fills up Rx_bufc
-//					temp_buf1[15] = Rx_bufc[0];
-//					temp_buf1[16] = Rx_bufc[1];
-//					temp_buf1[17] = Rx_bufc[2];
-//					ble_nus_string_send(&m_nus, temp_buf1, 18);
-//				}
-//#endif																							
-				if (cntr <255)
-					cntr++;
-				else
-					cntr =0;
-			}
-			else{	// Idle								
-				for (cntr = 0; cntr < 10; cntr++){
-					//LEDS_INVERT(BSP_LED_1_MASK);
-					//LEDS_INVERT(BSP_LED_0_MASK);
+				else{	// Idle								
 					LEDS_OFF(BSP_LED_0_MASK);
 					LEDS_OFF(BSP_LED_1_MASK);
-					nrf_delay_ms(100);
-					LEDS_ON(BSP_LED_0_MASK);
-					LEDS_ON(BSP_LED_1_MASK);
-					nrf_delay_ms(100);
+					LEDS_OFF(BSP_LED_2_MASK);
+					LEDS_OFF(BSP_LED_3_MASK);
+					nrf_gpio_pin_clear(22);					// RESET pin low
+					nrf_gpio_pin_clear(21);					// START pin low
+									
+					spi_tx_buff_ptr = adc_sleep;		// Initialize pointer to read register buffer	
+					// Reset rx buffer and transfer done flag
+					memset(m_rx_buf, 0, m_length_sleep);				
+					spi_xfer_done = false;			
+					APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_sleep, m_rx_buf, m_length_sleep));
+					//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
+					while (!spi_xfer_done)
+					{
+						__WFE();
+					}	
+					
+					sleep_mode_enter();
+					//power_manage();				
+					//__SEV();
+					//__WFE();
+					//__WFE();								
 				}
-				
-				//LEDS_OFF(BSP_LED_0_MASK);
-				//LEDS_OFF(BSP_LED_1_MASK);
-				//LEDS_OFF(BSP_LED_2_MASK);
-				//LEDS_OFF(BSP_LED_3_MASK);				
-				spi_tx_buff_ptr = adc_sleep;		// Initialize pointer to read register buffer	
-				// Reset rx buffer and transfer done flag
-				memset(m_rx_buf, 0, m_length_sleep);				
-				spi_xfer_done = false;			
-				APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_sleep, m_rx_buf, m_length_sleep));
-				//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
-				while (!spi_xfer_done)
-				{
-					__WFE();
-				}	
-				nrf_delay_ms(200);
-				//nrf_gpio_pin_clear(22);					// RESET pin low
-				//nrf_gpio_pin_clear(21);					// START pin low			
-				nrf_delay_ms(1);
-				sleep_mode_enter();
-				//power_manage();				
-				//__SEV();
-				//__WFE();
-				//__WFE();								
-			}
-				
-				
-				
-		}	
+					
+					
+					
+			}	
 }
 
 
 /** 
  * @}
  */
+

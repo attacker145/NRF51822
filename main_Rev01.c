@@ -50,6 +50,13 @@
 #include "boards.h"
 #include "app_error.h"
 
+//ADC libraries
+#include "nrf_drv_adc_Rev01.h"
+
+void adc_config(void);
+void adc_read_sample(void);
+
+
 
 // SPI SPI SPI SPI
 #if defined(BOARD_PCA10036) || defined(BOARD_PCA10040)
@@ -118,6 +125,38 @@ uint8_t hundredsc;
 uint8_t const * spi_tx_buff_ptr;
 uint8_t connected;
 uint8_t adv;
+
+//ADC
+#define ADC_BUFFER_SIZE 10
+static nrf_adc_value_t       adc_buffer[ADC_BUFFER_SIZE]; /**< ADC buffer. */
+/**
+ * @brief Function for main application entry.
+ */
+void adc_read_sample(void)
+{
+	/*
+	 * Use nrf_drv_adc_buffer_convert to perform multiple conversions on multiple channels. 
+	 * This function sets up ADC but does not trigger a conversion. Conversions can be triggered 
+	 * either by calling nrf_drv_adc_sample or with PPI. The task address for PPI can be retrieved 
+	 * through the driver by calling nrf_drv_adc_start_task_get.
+	*/
+	APP_ERROR_CHECK(nrf_drv_adc_buffer_convert(adc_buffer,ADC_BUFFER_SIZE));//int16_t adc_buffer, 16 bit var array. ADC is 10 bit
+	uint32_t i;
+	for (i = 0; i < ADC_BUFFER_SIZE; i++)
+	{
+		// manually trigger ADC conversion
+		nrf_drv_adc_sample();
+//            // enter into sleep mode
+//            __SEV();
+//            __WFE();
+//            __WFE();
+
+//            nrf_delay_ms(100);
+//            LEDS_INVERT(BSP_LED_0_MASK);
+   }
+
+}
+
 
 /*
  * Convert uint32_t hex value to an uint8_t array.

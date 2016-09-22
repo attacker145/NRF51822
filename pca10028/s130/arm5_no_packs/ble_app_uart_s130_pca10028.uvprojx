@@ -369,7 +369,7 @@
               <MiscControls></MiscControls>
               <Define>BLE_STACK_SUPPORT_REQD BOARD_PCA10028 S130 NRF_LOG_USES_UART=1 NRF51 SOFTDEVICE_PRESENT SWI_DISABLE0</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\config;..\..\..\config\ble_app_uart_s130_pca10028;..\..\..\..\..\..\components\ble\ble_advertising;..\..\..\..\..\..\components\ble\ble_services\ble_nus;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\drivers_nrf\delay;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\pstorage;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\libraries\button;..\..\..\..\..\..\components\libraries\experimental_section_vars;..\..\..\..\..\..\components\libraries\fifo;..\..\..\..\..\..\components\libraries\fstorage;..\..\..\..\..\..\components\libraries\fstorage\config;..\..\..\..\..\..\components\libraries\timer;..\..\..\..\..\..\components\libraries\uart;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\softdevice\s130\headers;..\..\..\..\..\..\components\softdevice\s130\headers\nrf51;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\bsp;..\..\..\..\..\..\external\segger_rtt;..\..\..\..\..\..\components\drivers_nrf\spi_master\nrf_drv_spi.h;..\..\..\..\..\..\components\drivers_nrf\spi_master;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\peripheral\spi\pca10028;..\..\..\..\..\..\components\drivers_nrf\spi_master;..\..\..\..\..\..\components\drivers_nrf\adc\nrf_drv_adc.h;..\..\..\..\..\..\components\drivers_nrf\hal\nrf_adc.h;..\..\..\..\..\..\components;..\..\..\..\..\..\components\drivers_nrf;..\..\..\..\..\..\components\drivers_nrf\adc;..\..\..\..\..\..\examples;..\..\..\..\..\peripheral;..\..\..\..\..\peripheral\adc\config;..\..\..\..\..\peripheral;..\..\..\..\..\peripheral\adc;..\..\..\..\..\peripheral\adc\config;..\..\..\..\..\peripheral\adc\pca10028</IncludePath>
+              <IncludePath>..\..\..\config;..\..\..\config\ble_app_uart_s130_pca10028;..\..\..\..\..\..\components\ble\ble_advertising;..\..\..\..\..\..\components\ble\ble_services\ble_nus;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\drivers_nrf\delay;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\drivers_nrf\pstorage;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\libraries\button;..\..\..\..\..\..\components\libraries\experimental_section_vars;..\..\..\..\..\..\components\libraries\fifo;..\..\..\..\..\..\components\libraries\fstorage;..\..\..\..\..\..\components\libraries\fstorage\config;..\..\..\..\..\..\components\libraries\timer;..\..\..\..\..\..\components\libraries\uart;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\softdevice\s130\headers;..\..\..\..\..\..\components\softdevice\s130\headers\nrf51;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\bsp;..\..\..\..\..\..\external\segger_rtt;..\..\..\..\..\..\components\drivers_nrf\spi_master\nrf_drv_spi.h;..\..\..\..\..\..\components\drivers_nrf\spi_master;..\..\..\..\..\..\components\drivers_nrf\spi_slave;..\..\..\..\..\peripheral\spi\pca10028;..\..\..\..\..\..\components\drivers_nrf\spi_master;..\..\..\..\..\peripheral\adc\config;..\..\..\..\..\peripheral\adc\pca10028;..\arm5_no_packs;..\..\..\..\..\..\components\drivers_nrf\adc;..\..\..\..\..\..\components\drivers_nrf\adc;..\..\..\config\ble_app_uart_s130_pca10028</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -413,9 +413,9 @@
           <GroupName>Application</GroupName>
           <Files>
             <File>
-              <FileName>main_senso_v01x.c</FileName>
+              <FileName>main_Rev01.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\main_senso_v01x.c</FilePath>
+              <FilePath>..\..\..\main_Rev01.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1103,24 +1103,9 @@
               <FilePath>..\..\..\..\..\..\components\drivers_nrf\spi_master\nrf_drv_spi.c</FilePath>
             </File>
             <File>
-              <FileName>nrf_adc.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\nrf_adc.c</FilePath>
-            </File>
-            <File>
               <FileName>nrf_drv_adc.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\nrf_drv_adc.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_adc_Rev01.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\nrf_drv_adc_Rev01.h</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_config_Rev01.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\nrf_drv_config_Rev01.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -2278,9 +2263,9 @@
           <GroupName>Application</GroupName>
           <Files>
             <File>
-              <FileName>main_senso_v01x.c</FileName>
+              <FileName>main_Rev01.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\main_senso_v01x.c</FilePath>
+              <FilePath>..\..\..\main_Rev01.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -2968,24 +2953,9 @@
               <FilePath>..\..\..\..\..\..\components\drivers_nrf\spi_master\nrf_drv_spi.c</FilePath>
             </File>
             <File>
-              <FileName>nrf_adc.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\nrf_adc.c</FilePath>
-            </File>
-            <File>
               <FileName>nrf_drv_adc.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\nrf_drv_adc.c</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_adc_Rev01.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\nrf_drv_adc_Rev01.h</FilePath>
-            </File>
-            <File>
-              <FileName>nrf_drv_config_Rev01.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\nrf_drv_config_Rev01.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -3896,19 +3866,19 @@
       </component>
     </components>
     <files>
-      <file attr="config" category="source" condition="ARM Compiler" name="Device\Source\arm\arm_startup_nrf51.s">
+      <file attr="config" category="source" condition="ARM Compiler" name="Device\Source\arm\arm_startup_nrf51.s" version="8.7.1">
         <instance index="0">RTE\Device\nRF51422_xxAC\arm_startup_nrf51.s</instance>
-        <component Cclass="Device" Cgroup="Startup" Cvendor="NordicSemiconductor" Cversion="8.7.1" condition="nRF51 Series CMSIS Device"/>
-        <package license="License\license.txt" name="nRF_DeviceFamilyPack" schemaVersion="1.3" url="http://developer.nordicsemi.com/nRF5_SDK/pieces/nRF_DeviceFamilyPack/" vendor="NordicSemiconductor" version="8.7.1"/>
+        <component Cclass="Device" Cgroup="Startup" Cvendor="NordicSemiconductor" Cversion="8.5.0" condition="nRF51 Series CMSIS Device"/>
+        <package license="License\license.txt" name="nRF_DeviceFamilyPack" schemaVersion="1.3" url="http://developer.nordicsemi.com/nRF5_SDK/pieces/nRF_DeviceFamilyPack/" vendor="NordicSemiconductor" version="8.5.0"/>
         <targetInfos>
           <targetInfo excluded="1" name="flash_s130_nrf51_2.0.0_softdevice"/>
           <targetInfo name="nrf51422_xxac_s130"/>
         </targetInfos>
       </file>
-      <file attr="config" category="source" name="Device\Source\system_nrf51.c">
+      <file attr="config" category="source" name="Device\Source\system_nrf51.c" version="8.7.1">
         <instance index="0">RTE\Device\nRF51422_xxAC\system_nrf51.c</instance>
-        <component Cclass="Device" Cgroup="Startup" Cvendor="NordicSemiconductor" Cversion="8.7.1" condition="nRF51 Series CMSIS Device"/>
-        <package license="License\license.txt" name="nRF_DeviceFamilyPack" schemaVersion="1.3" url="http://developer.nordicsemi.com/nRF5_SDK/pieces/nRF_DeviceFamilyPack/" vendor="NordicSemiconductor" version="8.7.1"/>
+        <component Cclass="Device" Cgroup="Startup" Cvendor="NordicSemiconductor" Cversion="8.5.0" condition="nRF51 Series CMSIS Device"/>
+        <package license="License\license.txt" name="nRF_DeviceFamilyPack" schemaVersion="1.3" url="http://developer.nordicsemi.com/nRF5_SDK/pieces/nRF_DeviceFamilyPack/" vendor="NordicSemiconductor" version="8.5.0"/>
         <targetInfos>
           <targetInfo excluded="1" name="flash_s130_nrf51_2.0.0_softdevice"/>
           <targetInfo name="nrf51422_xxac_s130"/>

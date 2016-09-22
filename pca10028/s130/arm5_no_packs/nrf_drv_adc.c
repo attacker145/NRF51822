@@ -10,8 +10,8 @@
  *
  */
 
-//#include "nrf_drv_adc.h"
-#include "nrf_drv_adc_Rev01.h"
+#include "nrf_drv_adc.h"
+//#include "nrf_drv_adc_Rev01.h"
 #include "nrf_drv_common.h"
 #include "nrf_assert.h"
 #include "app_util_platform.h"

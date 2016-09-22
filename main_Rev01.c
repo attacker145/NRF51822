@@ -51,10 +51,22 @@
 #include "app_error.h"
 
 //ADC libraries
-#include "nrf_drv_adc_Rev01.h"
+#include "nrf_drv_adc.h"
+//#include "nrf_drv_adc_Rev01.h"
 
-void adc_config(void);
-void adc_read_sample(void);
+
+
+//#include "nrf.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+//#include "nordic_common.h"
+//#include "boards.h"
+//#include "nrf_log.h"
+//#include "app_error.h"
+//#include "nrf_delay.h"
+//#include "app_util_platform.h"
+#include "nrf_adc.h"
 
 
 
@@ -125,38 +137,6 @@ uint8_t hundredsc;
 uint8_t const * spi_tx_buff_ptr;
 uint8_t connected;
 uint8_t adv;
-
-//ADC
-#define ADC_BUFFER_SIZE 10
-static nrf_adc_value_t       adc_buffer[ADC_BUFFER_SIZE]; /**< ADC buffer. */
-/**
- * @brief Function for main application entry.
- */
-void adc_read_sample(void)
-{
-	/*
-	 * Use nrf_drv_adc_buffer_convert to perform multiple conversions on multiple channels. 
-	 * This function sets up ADC but does not trigger a conversion. Conversions can be triggered 
-	 * either by calling nrf_drv_adc_sample or with PPI. The task address for PPI can be retrieved 
-	 * through the driver by calling nrf_drv_adc_start_task_get.
-	*/
-	APP_ERROR_CHECK(nrf_drv_adc_buffer_convert(adc_buffer,ADC_BUFFER_SIZE));//int16_t adc_buffer, 16 bit var array. ADC is 10 bit
-	uint32_t i;
-	for (i = 0; i < ADC_BUFFER_SIZE; i++)
-	{
-		// manually trigger ADC conversion
-		nrf_drv_adc_sample();
-//            // enter into sleep mode
-//            __SEV();
-//            __WFE();
-//            __WFE();
-
-//            nrf_delay_ms(100);
-//            LEDS_INVERT(BSP_LED_0_MASK);
-   }
-
-}
-
 
 /*
  * Convert uint32_t hex value to an uint8_t array.
@@ -270,6 +250,86 @@ void hexdec_char( uint8_t countc )
 	Rx_bufc[2] = onesc + 0x30;
 	return;
 }
+
+
+
+// ADC ******************************************************************************* ADC ******************************
+#define adc
+#ifdef adc
+#define ADC_BUFFER_SIZE 4                                /**< Size of buffer for ADC samples.  */
+static nrf_adc_value_t       adc_buffer[ADC_BUFFER_SIZE]; /**< ADC buffer. */
+static nrf_drv_adc_channel_t m_channel_config = NRF_DRV_ADC_DEFAULT_CHANNEL(NRF_ADC_CONFIG_INPUT_2); /**< Channel instance. Default configuration used. */
+static uint8_t adc_event_counter = 0;
+static ble_nus_t			m_nus;                                      /**< Structure to identify the Nordic UART Service. */
+
+/**
+ * @brief ADC interrupt handler.
+ * Prints ADC results on hardware UART and over BLE via the NUS service.
+ */
+static void adc_event_handler(nrf_drv_adc_evt_t const * p_event)
+{
+    uint8_t adc_result[ADC_BUFFER_SIZE*2];
+	
+    if (p_event->type == NRF_DRV_ADC_EVT_DONE)
+    {
+        adc_event_counter++;
+        printf("    ADC event counter: %d\r\n", adc_event_counter);			
+        uint32_t i;
+        for (i = 0; i < p_event->data.done.size; i++)
+        {
+            printf("Sample value %d: %d\r\n", i+1, p_event->data.done.p_buffer[i]);   //Print ADC result on hardware UART
+            adc_result[(i*2)] = p_event->data.done.p_buffer[i] >> 8;
+            adc_result[(i*2)+1] = p_event->data.done.p_buffer[i];					
+        }
+        if(ADC_BUFFER_SIZE <= 10)
+        {
+            ble_nus_string_send(&m_nus, &adc_result[0], ADC_BUFFER_SIZE*2);           //Send ADC result over BLE via NUS service
+        }		
+        LEDS_INVERT(BSP_LED_3_MASK);				                                          //Indicate sampling complete on LED 4
+    }
+}
+
+//#define _PRIO_SD_HIGH       0
+//#define _PRIO_APP_HIGH      1
+//#define _PRIO_APP_MID       1
+//#define _PRIO_SD_LOW        2
+#define _PRIO_APP_LOW       3
+//#define _PRIO_APP_LOWEST    3
+//#define _PRIO_THREAD        4
+
+#define ADC_CONFIG_IRQ_PRIORITY APP_IRQ_PRIORITY_LOW
+
+/**
+ * @brief ADC initialization.
+ */
+static void adc_config(void)
+{
+    ret_code_t ret_code;
+    nrf_drv_adc_config_t config = NRF_DRV_ADC_DEFAULT_CONFIG;
+
+    ret_code = nrf_drv_adc_init(&config, adc_event_handler);
+    APP_ERROR_CHECK(ret_code);
+
+    nrf_drv_adc_channel_enable(&m_channel_config);
+}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * @brief SPI user event handler.
  * @param event
@@ -285,7 +345,7 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event)
 	  Result = (Result + (uint32_t)m_rx_buf[1]);	// Save byte 1 of the ADC result in uint32_t Result
 	  Result = (Result << 8);
 	  Result = (Result + (uint32_t)m_rx_buf[2]);	// Save byte 2 of the ADC result in uint32_t Result
-	  Result = Result * 2;
+	  //Result = Result * 2;
 		hexdec_long( Result );											// Convert Result into character string. Fills up Rx_buf
 //#define UART_SPI
 #ifdef UART_SPI	
@@ -1006,6 +1066,7 @@ int main(void)
     services_init();
     advertising_init();
     conn_params_init();
+		//adc_config();
 		
 		//SPI-------------------------------------------------------------------------------
 	  /*
@@ -1013,17 +1074,30 @@ int main(void)
 	   *#define SPI0_CONFIG_SCK_PIN         16
 	   *#define SPI0_CONFIG_MOSI_PIN        17
      *#define SPI0_CONFIG_MISO_PIN        18
+		 *SPI is in master mode
 		*/
 		nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG(SPI_INSTANCE);	// Configure SPI nrf_drv_spi.h line 151
     spi_config.ss_pin = SPI_CS_PIN;				//CS is pin 19
     APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler)); //spi_event_handler_init
 		//APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler_init));
-							
+		
+		//Excitation current configure
 		spi_tx_buff_ptr = adc_idac_config;		// Initialize pointer to the exitation config	
 		// Reset rx buffer and transfer done flag
     memset(m_rx_buf, 0, m_length_exc);
 		//memset(m_rx_buf, 0, 13);
     spi_xfer_done = false;	
+		/*
+		*Functions
+		*ret_code_t 	nrf_drv_spi_init (nrf_drv_spi_t const *const p_instance, nrf_drv_spi_config_t const *p_config, nrf_drv_spi_handler_t handler)
+		*Function for initializing the SPI master driver instance.
+		*
+		*void 	nrf_drv_spi_uninit (nrf_drv_spi_t const *const p_instance)
+		*Function for uninitializing the SPI master driver instance.
+		*
+		*ret_code_t 	nrf_drv_spi_transfer (nrf_drv_spi_t const *const p_instance, uint8_t const *p_tx_buffer, uint8_t tx_buffer_length, uint8_t *p_rx_buffer, uint8_t rx_buffer_length)
+    *Function for starting the SPI data transfer
+		*/
 		// Read internal registers into m_rx_buf
 		APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, (uint8_t const *)spi_tx_buff_ptr, m_length_exc, m_rx_buf, m_length_exc));
 		//APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, read_reg, length_read_reg, m_rx_buf, length_read_reg));
@@ -1036,12 +1110,15 @@ int main(void)
     printf("\r\nUART Start!\r\n");				 
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
-    										
+#ifdef adc
+		adc_config();
+#endif										
 		cntr = 0;
 		// The main loop.
     for (;;)
     {								
 				if(connected){
+					//adc_read_sample();
 					nrf_gpio_pin_set(21);						// START set high			
 					nrf_delay_ms(1);					
 					if ((cntr % 2) == 0){	//Initialize TC ADC
@@ -1173,7 +1250,16 @@ int main(void)
 					//ble_nus_string_send(&m_nus, Rx_buf, 10);	// Rx_buf is filled up in the handler. Send TC data		
 					LEDS_INVERT(BSP_LED_1_MASK);
 					nrf_delay_ms(500);
-					
+#ifdef adc			
+					APP_ERROR_CHECK(nrf_drv_adc_buffer_convert(adc_buffer,ADC_BUFFER_SIZE));   //Allocate buffer for ADC
+					for (uint32_t i = 0; i < ADC_BUFFER_SIZE; i++)
+					{
+						nrf_drv_adc_sample();           // manually trigger ADC conversion
+						power_manage();                 // CPU enter sleep mode during sampling. CPU will be enabled again when ADC interrupt occurs and adc_event_handler is called
+						LEDS_INVERT(BSP_LED_1_MASK);    // Indicate sampling complete
+						nrf_delay_ms(250);              // Slow down sampling frequency with 250ms blocking delay
+					}
+#endif
 					}																				
 					nrf_gpio_pin_clear(21);						// START set low
 					nrf_delay_ms(1);
